@@ -1,0 +1,38 @@
+{
+  "name": "protocol-widget",
+  "version": "1.0.0",
+  "description": "Protocol desktop widget — always-on-top HUD overlay",
+  "main": "dist/main/main/main.js",
+  "scripts": {
+    "dev": "npm run build && concurrently \"npm run build:renderer:watch\" \"npm run build:main:watch\" \"npm run electron:dev\"",
+    "electron:dev": "wait-on file:dist/main/main/main.js file:dist/renderer/index.html && electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:main:watch": "tsc -p tsconfig.main.json --watch",
+    "build:renderer": "vite build",
+    "build:renderer:watch": "vite build --watch",
+    "package": "npm run build && electron-builder",
+    "package:win": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac"
+  },
+  "keywords": [],
+  "author": "Sadique",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "concurrently": "^8.0.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "wait-on": "^7.0.0"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}

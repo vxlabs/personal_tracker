@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOT NOW — Protocol</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0a0a0f;
+      color: #e8e8f0;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .container {
+      text-align: center;
+      padding: 3rem 2rem;
+      max-width: 560px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .protocol-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      color: #7a7a90;
+      border: 1px solid #2a2a3a;
+      padding: 0.3rem 0.8rem;
+      margin-bottom: 2.5rem;
+      text-transform: uppercase;
+    }
+
+    .main-text {
+      font-size: clamp(4rem, 15vw, 7rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: #e8e8f0;
+      margin-bottom: 1.5rem;
+    }
+
+    .main-text .dot {
+      color: var(--block-color, #a855f7);
+    }
+
+    .block-info {
+      font-size: 1rem;
+      color: #7a7a90;
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+
+    .block-name {
+      color: var(--block-color, #a855f7);
+      font-weight: 700;
+    }
+
+    .timer-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .timer-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--block-color, #a855f7);
+      min-width: 3ch;
+      text-align: right;
+    }
+
+    .timer-label {
+      font-size: 0.75rem;
+      color: #7a7a90;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      align-self: flex-end;
+      padding-bottom: 0.4rem;
+    }
+
+    .divider {
+      width: 2rem;
+      height: 1px;
+      background: #2a2a3a;
+      margin: 1.5rem auto;
+    }
+
+    .site-blocked {
+      font-size: 0.75rem;
+      color: #4a4a5a;
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+    }
+
+    .site-blocked span {
+      color: #6a6a7a;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.5rem;
+      border: 1px solid;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: transparent;
+      border-color: var(--block-color, #a855f7);
+      color: var(--block-color, #a855f7);
+    }
+
+    .btn-primary:hover {
+      background: var(--block-color, #a855f7);
+      color: #0a0a0f;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: #2a2a3a;
+      color: #4a4a5a;
+    }
+
+    .btn-ghost:hover {
+      border-color: #4a4a5a;
+      color: #7a7a90;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 2px;
+      background: #1a1a26;
+      margin: 1.5rem 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--block-color, #a855f7);
+      transition: width 0.5s ease;
+      box-shadow: 0 0 6px var(--block-color, #a855f7);
+    }
+
+    .offline-notice {
+      font-size: 0.75rem;
+      color: #4a4a5a;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="protocol-badge">Protocol Enforcer</div>
+
+    <h1 class="main-text">NOT NOW<span class="dot">.</span></h1>
+
+    <p class="block-info" id="block-info">
+      You're in <span class="block-name" id="block-name">Focus</span> mode.
+    </p>
+
+    <div class="timer-row">
+      <span class="timer-value" id="minutes">—</span>
+      <span class="timer-label">min remaining</span>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+
+    <p class="site-blocked">
+      blocked: <span id="site-name">—</span>
+    </p>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="back-btn">← Go back</button>
+      <a href="http://localhost:5173/focus" target="_self" class="btn btn-ghost">Open Protocol</a>
+    </div>
+
+    <p class="offline-notice" id="offline-notice" style="display:none">
+      Protocol API offline — blocking active from last sync
+    </p>
+  </div>
+
+  <script src="blocked.js"></script>
+</body>
+</html>

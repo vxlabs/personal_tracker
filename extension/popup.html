@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Protocol</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 260px;
+      background: #12121a;
+      color: #e8e8f0;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+
+    .header-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: #7a7a90;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4a4a5a;
+    }
+
+    .status-dot.online { background: #22c55e; }
+    .status-dot.focus  { animation: pulse 1.5s ease-in-out infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .block-card {
+      padding: 12px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+
+    .block-label-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .block-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--block-color, #a855f7);
+    }
+
+    .block-label {
+      font-weight: 700;
+      font-size: 13px;
+      color: #e8e8f0;
+      flex: 1;
+    }
+
+    .block-time {
+      font-size: 10px;
+      color: #7a7a90;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 2px;
+      background: #2a2a3a;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--block-color, #a855f7);
+      box-shadow: 0 0 4px var(--block-color, #a855f7);
+    }
+
+    .progress-pct {
+      font-size: 10px;
+      color: #7a7a90;
+      width: 28px;
+      text-align: right;
+    }
+
+    .next-block {
+      padding: 8px 12px;
+      border-bottom: 1px solid #2a2a3a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .next-label {
+      font-size: 10px;
+      color: #4a4a5a;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      flex-shrink: 0;
+    }
+
+    .next-name {
+      font-size: 11px;
+      color: #7a7a90;
+      flex: 1;
+    }
+
+    .shield-row {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .shield-icon {
+      font-size: 11px;
+    }
+
+    .shield-text {
+      font-size: 10px;
+      color: #4a4a5a;
+    }
+
+    .shield-text.active {
+      color: #a855f7;
+    }
+
+    .offline-banner {
+      padding: 8px 12px;
+      background: #1a1a26;
+      font-size: 10px;
+      color: #4a4a5a;
+      border-bottom: 1px solid #2a2a3a;
+    }
+
+    .footer {
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-open {
+      flex: 1;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 8px;
+      background: transparent;
+      border: 1px solid #2a2a3a;
+      color: #7a7a90;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      display: block;
+    }
+
+    .btn-open:hover {
+      border-color: #a855f7;
+      color: #a855f7;
+    }
+
+    .empty-state {
+      padding: 20px 12px;
+      text-align: center;
+      color: #4a4a5a;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-title">Protocol</span>
+    <div class="status-dot" id="status-dot"></div>
+  </div>
+
+  <div id="content">
+    <div class="empty-state" id="loading">Loading...</div>
+  </div>
+
+  <div class="footer">
+    <a href="http://localhost:5173" target="_blank" class="btn-open">Open App</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

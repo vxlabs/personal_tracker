@@ -1,0 +1,68 @@
+import React from 'react';
+import { WidgetState } from '../shared/types';
+import { useCountdown } from './useCountdown';
+
+const BLOCK_EMOJI: Record<string, string> = {
+  ml: '🧠',
+  content: '🎬',
+  reading: '📚',
+  work: '💼',
+  football: '⚽',
+  gym: '🏋️',
+  rest: '☕',
+  off: '🌿',
+  routine: '🌅',
+  deep: '🔬',
+};
+
+interface Props {
+  state: WidgetState;
+  onExpand: () => void;
+  blockColor: string;
+}
+
+export function CompactView({ state, onExpand, blockColor }: Props) {
+  const { schedule } = state;
+  const block = schedule?.current;
+  const startEpoch = schedule?.currentBlockStartEpoch ?? null;
+  const endEpoch = schedule?.currentBlockEndEpoch ?? null;
+
+  const { label: countdownLabel, progressPct } = useCountdown(block, startEpoch, endEpoch);
+
+  if (!block) {
+    return (
+      <div className="no-block">
+        No active block{!state.apiOnline && <span className="offline-badge">⚠ offline</span>}
+      </div>
+    );
+  }
+
+  const emoji = BLOCK_EMOJI[block.type] ?? '▸';
+
+  return (
+    <div className="compact">
+      <div className="compact-row">
+        <span className="block-label">
+          <span className="block-emoji">{emoji}</span>
+          {block.label}
+          {!state.apiOnline && <span className="offline-badge">⚠</span>}
+        </span>
+        <span className="countdown no-drag">{countdownLabel}</span>
+        <button
+          className="expand-btn no-drag"
+          onClick={onExpand}
+          title="Expand"
+          aria-label="Expand widget"
+        >
+          ▼
+        </button>
+      </div>
+      <div className="progress-bar">
+        <div
+          className="progress-fill"
+          style={{ width: `${progressPct}%`, background: blockColor }}
+        />
+      </div>
+    </div>
+  );
+}

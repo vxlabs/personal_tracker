@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(npm --version)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npm run:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(timeout 10 dotnet run --no-build)",
+      "Bash(timeout 12 dotnet run)",
+      "Read(//c/Users/sadiq/.claude/projects/C--Users-sadiq-Desktop-Projects-personal-tracker/1a4fd9a1-6a7f-49ad-8529-5005924ea86b/tool-results/**)",
+      "Bash(dotnet run:*)",
+      "Bash(curl -s http://localhost:5000/api/schedule/now)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:5000/api/schedule/now echo \"\" echo \"--- /api/schedule/monday \\(first 2 blocks\\) ---\" curl -s http://localhost:5000/api/schedule/monday)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(json.dumps\\(b,indent=2\\)\\) for b in d[:2]]\")",
+      "Bash(curl -s http://localhost:5000/api/schedule/monday echo \"\" echo \"--- /api/schedule/badday ---\" curl -s http://localhost:5000/api/schedule/badday kill %1)",
+      "Bash(taskkill /PID 5128 /F)",
+      "Bash(node generate-icons.js)",
+      "Bash(node *)",
+      "Bash(curl *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

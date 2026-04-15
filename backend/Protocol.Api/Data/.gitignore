@@ -1,0 +1,4 @@
+# Ignore runtime DB files
+*.db
+*.db-shm
+*.db-wal

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Protocol — Generate Icons</title>
+  <style>
+    body { background: #0a0a0f; color: #e8e8f0; font-family: monospace; padding: 2rem; }
+    canvas { display: block; margin: 8px 0; image-rendering: pixelated; }
+    button {
+      margin-top: 1rem;
+      font-family: monospace;
+      background: #a855f7;
+      color: #0a0a0f;
+      border: none;
+      padding: 0.5rem 1.5rem;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <h2>Protocol Icon Generator</h2>
+  <p style="color:#7a7a90;margin:0.5rem 0 1.5rem">Click each button to download the PNG, then place it in <code>extension/icons/</code></p>
+  <div id="canvases"></div>
+  <script>
+    const sizes = [16, 48, 128];
+    const container = document.getElementById('canvases');
+
+    for (const size of sizes) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      canvas.style.width = Math.max(size, 64) + 'px';
+      canvas.style.height = Math.max(size, 64) + 'px';
+
+      const ctx = canvas.getContext('2d');
+      const cx = size / 2, cy = size / 2;
+
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, size, size);
+
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = Math.max(1, size * 0.05);
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.44, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0a0a0f';
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.11, 0, Math.PI * 2);
+      ctx.fill();
+
+      const btn = document.createElement('button');
+      btn.textContent = `Download icon-${size}.png`;
+      btn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `icon-${size}.png`;
+        a.click();
+      };
+
+      const label = document.createElement('p');
+      label.textContent = `${size}x${size}`;
+      label.style.color = '#7a7a90';
+      label.style.margin = '1rem 0 0.25rem';
+
+      container.appendChild(label);
+      container.appendChild(canvas);
+      container.appendChild(btn);
+    }
+  </script>
+</body>
+</html>
