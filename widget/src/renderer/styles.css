@@ -228,7 +228,7 @@ body,
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 180px;
+  min-height: 210px;
   padding: 12px 13px 11px;
 }
 

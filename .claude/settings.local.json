@@ -24,7 +24,10 @@
       "Bash(node generate-icons.js)",
       "Bash(node *)",
       "Bash(curl *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(sqlite3 Data/protocol.db \"SELECT MigrationId FROM __EFMigrationsHistory;\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python -c ' *)"
     ]
   }
 }

@@ -250,8 +250,8 @@ public class ScheduleService(ProtocolDbContext db)
     private static BlockDto ToDto(TimeBlock b) => new(
         b.Id,
         b.DayOfWeek.ToString(),
-        b.StartTime.ToString(@"HH\:mm"),
-        b.EndTime.ToString(@"HH\:mm"),
+        b.StartTime.ToString(@"hh\:mm"),
+        b.EndTime.ToString(@"hh\:mm"),
         b.Type,
         b.Label,
         b.Note,

@@ -9,7 +9,7 @@ import { setAutoLaunchEnabled } from './auto-launch';
 
 const WIDGET_WIDTH = 240;
 const COMPACT_HEIGHT = 60;
-const EXPANDED_HEIGHT = 180;
+const EXPANDED_HEIGHT = 210;
 const RESIZE_DURATION_MS = 180;
 const RESIZE_STEP_MS = 16;
 const SCREEN_MARGIN = 20;
@@ -152,13 +152,6 @@ function createWidget(): BrowserWindow {
 
   // __dirname is dist/main/main/ — renderer is dist/renderer/
   win.loadFile(path.join(__dirname, '../../renderer/index.html'));
-
-  // Open DevTools automatically in dev mode for renderer debugging
-  if (isDev) {
-    win.webContents.once('did-finish-load', () => {
-      win.webContents.openDevTools({ mode: 'detach' });
-    });
-  }
 
   // Save position on move
   win.on('moved', () => {
