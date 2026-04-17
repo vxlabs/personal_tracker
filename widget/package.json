@@ -1,7 +1,7 @@
 {
-  "name": "protocol-widget",
+  "name": "protocol-desktop",
   "version": "1.0.0",
-  "description": "Protocol desktop widget — always-on-top HUD overlay",
+  "description": "Protocol desktop app with embedded API and always-on-top widget",
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "npm run build && concurrently \"npm run build:renderer:watch\" \"npm run build:main:watch\" \"npm run electron:dev\"",
@@ -13,7 +13,8 @@
     "build:renderer:watch": "vite build --watch",
     "package": "npm run build && electron-builder",
     "package:win": "npm run build && electron-builder --win",
-    "package:mac": "npm run build && electron-builder --mac"
+    "package:mac": "npm run build && electron-builder --mac",
+    "generate-extension-key": "node ../scripts/generate-extension-key.js"
   },
   "keywords": [],
   "author": "Sadique",

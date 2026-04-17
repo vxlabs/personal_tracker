@@ -1,4 +1,5 @@
-import { BrowserWindow, Menu, Tray, app, nativeImage, shell } from 'electron';
+import { BrowserWindow, Menu, Tray, app, nativeImage } from 'electron';
+import path from 'path';
 import { WidgetCorner, WidgetMode } from '../shared/types';
 
 let tray: Tray | null = null;
@@ -6,6 +7,7 @@ let trayWidget: BrowserWindow | null = null;
 let trayHandlers: TrayHandlers | null = null;
 
 interface TrayHandlers {
+  onShowMainWindow: () => void;
   onSetMode: (mode: WidgetMode) => void;
   onSetAlwaysOnTop: (enabled: boolean) => void;
   onSetStartOnBoot: (enabled: boolean) => void;
@@ -25,35 +27,37 @@ interface TrayState {
 }
 
 const trayState: TrayState = {
-  tooltip: 'Protocol Widget',
+  tooltip: 'Protocol',
   mode: 'compact',
   alwaysOnTop: true,
   startOnBoot: false,
 };
 
-const TRAY_COLORS: Record<string, string> = {
-  ml: '#ef4444',
-  content: '#ef4444',
-  reading: '#ef4444',
-  deep: '#ef4444',
-  work: '#facc15',
-  football: '#22c55e',
-  gym: '#22c55e',
-  rest: '#94a3b8',
-  off: '#94a3b8',
-  routine: '#94a3b8',
-};
+const FOCUS_BLOCK_TYPES = new Set(['ml', 'content', 'reading', 'deep', 'work', 'football', 'gym']);
+const REST_BLOCK_TYPES = new Set(['rest', 'off', 'routine']);
+
+function getAssetsPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets');
+  }
+  return path.join(app.getAppPath(), 'assets');
+}
 
 function createTrayIcon(blockType?: string): Electron.NativeImage {
-  const color = blockType ? (TRAY_COLORS[blockType] ?? '#94a3b8') : '#64748b';
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-      <rect x="1.5" y="1.5" width="13" height="13" rx="4" fill="rgba(15,18,25,0.96)" stroke="rgba(255,255,255,0.12)" />
-      <circle cx="8" cy="8" r="3.25" fill="${color}" />
-    </svg>
-  `;
+  const assetsPath = getAssetsPath();
+  let iconFile = 'tray-icon.png';
 
-  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+  if (blockType) {
+    if (FOCUS_BLOCK_TYPES.has(blockType)) {
+      iconFile = 'tray-icon-focus.png';
+    } else if (REST_BLOCK_TYPES.has(blockType)) {
+      iconFile = 'tray-icon-rest.png';
+    }
+  }
+
+  const img = nativeImage.createFromPath(path.join(assetsPath, iconFile));
+  // Resize to standard tray icon size (16x16 on Windows)
+  return img.isEmpty() ? nativeImage.createEmpty() : img.resize({ width: 16, height: 16 });
 }
 
 function rebuildTrayMenu(): void {
@@ -133,9 +137,7 @@ function rebuildTrayMenu(): void {
     { type: 'separator' },
     {
       label: 'Open Protocol App',
-      click: () => {
-        void shell.openExternal('http://localhost:5173');
-      },
+      click: () => trayHandlers?.onShowMainWindow(),
     },
     { type: 'separator' },
     {
@@ -164,9 +166,8 @@ export function setupTray(
   tray = new Tray(createTrayIcon());
   rebuildTrayMenu();
 
-  tray.on('double-click', () => {
-    if (!trayWidget) return;
-    trayWidget.isVisible() ? trayWidget.hide() : trayWidget.show();
+  tray.on('click', () => {
+    trayHandlers?.onShowMainWindow();
   });
 }
 

@@ -170,12 +170,45 @@ Full extension guide → [`docs/wiki/Browser-Extensions.md`](docs/wiki/Browser-E
 
 An always-on-top Electron window that floats in the corner of your screen, showing the current block, countdown timer, and habit dots.
 
+### Development
+
 ```bash
 cd widget
 npm install
-npm run dev        # development
-npm run build      # package for your OS
+npm run dev        # hot-reloading dev mode
 ```
+
+### Packaging
+
+The widget embeds the backend API and frontend bundle into a single self-contained installer. Build the installer for your platform:
+
+```bash
+cd widget
+npm install
+
+# Windows — produces release/Protocol Setup <version>.exe
+npm run package:win
+
+# macOS — produces release/<version>.dmg
+npm run package:mac
+
+# Current OS (auto-detected)
+npm run package
+```
+
+The output is written to `widget/release/`:
+
+| File | Description |
+|---|---|
+| `Protocol Setup 1.0.0.exe` | NSIS one-click installer (Windows) |
+| `win-unpacked/Protocol.exe` | Unpacked binary — run without installing |
+| `*.blockmap` | Used by electron-updater for delta updates |
+
+> **Note:** On Windows, `electron-builder` uses `rcedit` to embed version metadata into the `.exe`. Windows Defender may block it, producing a non-fatal warning. The installer still works correctly. To suppress the warning, add `C:\Users\<you>\AppData\Local\electron-builder\Cache\winCodeSign\` to Windows Security exclusions.
+
+### Installing
+
+Run the installer (`Protocol Setup 1.0.0.exe`) or launch `win-unpacked/Protocol.exe` directly. The app installs per-user (no admin required) and appears in the system tray. It starts hidden and auto-shows when the first non-rest block is detected.
 
 Full widget guide → [`docs/wiki/Desktop-Widget.md`](docs/wiki/Desktop-Widget.md)
 

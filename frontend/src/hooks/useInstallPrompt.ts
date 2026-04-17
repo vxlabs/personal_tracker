@@ -9,11 +9,17 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
 }
 
-export function useInstallPrompt() {
+export function useInstallPrompt(enabled = true) {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstallable, setIsInstallable] = useState(false)
 
   useEffect(() => {
+    if (!enabled) {
+      setPromptEvent(null)
+      setIsInstallable(false)
+      return
+    }
+
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault()
@@ -34,10 +40,10 @@ export function useInstallPrompt() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [])
+  }, [enabled])
 
   const promptToInstall = async () => {
-    if (!promptEvent) {
+    if (!enabled || !promptEvent) {
       return
     }
     await promptEvent.prompt()

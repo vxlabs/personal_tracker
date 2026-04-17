@@ -1,9 +1,9 @@
 (async () => {
-  const API_BASE = 'http://localhost:5000/api';
-  const content  = document.getElementById('content');
+  const stored    = await browser.storage.local.get(['apiBase', 'state']);
+  const API_BASE  = stored.apiBase ?? 'http://localhost:5000/api';
+  const content   = document.getElementById('content');
   const statusDot = document.getElementById('status-dot');
 
-  // Always fetch live data when popup opens so time remaining is accurate
   let state;
   try {
     const [nowRes, sitesRes] = await Promise.all([
@@ -23,17 +23,18 @@
       online:           true,
     };
   } catch {
-    // Fall back to cached state if API is unreachable
-    const cached = await browser.storage.local.get('state');
-    state = cached.state ?? null;
+    state = stored.state ?? null;
   }
 
   if (!state || !state.online) {
     statusDot.className = 'status-dot';
-    content.innerHTML = `
-      <div class="offline-banner">Protocol API offline</div>
-      <div class="empty-state">Start the backend on<br/>localhost:5000</div>
-    `;
+    const banner = document.createElement('div');
+    banner.className = 'offline-banner';
+    banner.textContent = 'Protocol API offline';
+    const hint = document.createElement('div');
+    hint.className = 'empty-state';
+    hint.textContent = 'Start the Protocol desktop app';
+    content.append(banner, hint);
     return;
   }
 
@@ -41,7 +42,10 @@
 
   const block = state.currentBlock;
   if (!block) {
-    content.innerHTML = `<div class="empty-state">No active block</div>`;
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No active block';
+    content.appendChild(empty);
     return;
   }
 
@@ -49,43 +53,79 @@
   const pct   = Math.min(100, Math.max(0, state.percentComplete ?? 0));
   const min   = Math.round(state.minutesRemaining ?? 0);
 
-  let html = `
-    <div class="block-card" style="--block-color: ${color}">
-      <div class="block-label-row">
-        <div class="block-dot"></div>
-        <span class="block-label">${esc(block.label)}</span>
-        <span class="block-time">${min > 0 ? `${min}m left` : 'ending'}</span>
-      </div>
-      <div class="progress-row">
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${pct}%"></div>
-        </div>
-        <span class="progress-pct">${Math.round(pct)}%</span>
-      </div>
-    </div>
-  `;
+  // ── Block card ──────────────────────────────────────────────────────────────
+  const card = document.createElement('div');
+  card.className = 'block-card';
+  card.style.setProperty('--block-color', color);
 
+  const labelRow = document.createElement('div');
+  labelRow.className = 'block-label-row';
+
+  const dot = document.createElement('div');
+  dot.className = 'block-dot';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'block-label';
+  labelSpan.textContent = block.label;
+
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'block-time';
+  timeSpan.textContent = min > 0 ? `${min}m left` : 'ending';
+
+  labelRow.append(dot, labelSpan, timeSpan);
+
+  const progressRow = document.createElement('div');
+  progressRow.className = 'progress-row';
+
+  const progressBar = document.createElement('div');
+  progressBar.className = 'progress-bar';
+
+  const progressFill = document.createElement('div');
+  progressFill.className = 'progress-fill';
+  progressFill.style.width = `${pct}%`;
+  progressBar.appendChild(progressFill);
+
+  const pctSpan = document.createElement('span');
+  pctSpan.className = 'progress-pct';
+  pctSpan.textContent = `${Math.round(pct)}%`;
+
+  progressRow.append(progressBar, pctSpan);
+  card.append(labelRow, progressRow);
+  content.appendChild(card);
+
+  // ── Next block ──────────────────────────────────────────────────────────────
   if (state.nextBlock) {
-    html += `
-      <div class="next-block">
-        <span class="next-label">Next</span>
-        <span class="next-name">${esc(state.nextBlock.label)}</span>
-      </div>
-    `;
+    const nextDiv = document.createElement('div');
+    nextDiv.className = 'next-block';
+
+    const nextLabel = document.createElement('span');
+    nextLabel.className = 'next-label';
+    nextLabel.textContent = 'Next';
+
+    const nextName = document.createElement('span');
+    nextName.className = 'next-name';
+    nextName.textContent = state.nextBlock.label;
+
+    nextDiv.append(nextLabel, nextName);
+    content.appendChild(nextDiv);
   }
 
-  html += `
-    <div class="shield-row">
-      <span class="shield-icon">${state.isFocusBlock ? '🛡️' : '·'}</span>
-      <span class="shield-text ${state.isFocusBlock ? 'active' : ''}">
-        ${state.isFocusBlock
-          ? `Watching ${state.blockedDomains?.length ?? 0} sites`
-          : 'Watching inactive'}
-      </span>
-    </div>
-  `;
+  // ── Shield row ──────────────────────────────────────────────────────────────
+  const shieldRow = document.createElement('div');
+  shieldRow.className = 'shield-row';
 
-  content.innerHTML = html;
+  const shieldIcon = document.createElement('span');
+  shieldIcon.className = 'shield-icon';
+  shieldIcon.textContent = state.isFocusBlock ? '🛡️' : '·';
+
+  const shieldText = document.createElement('span');
+  shieldText.className = `shield-text${state.isFocusBlock ? ' active' : ''}`;
+  shieldText.textContent = state.isFocusBlock
+    ? `Watching ${state.blockedDomains?.length ?? 0} sites`
+    : 'Watching inactive';
+
+  shieldRow.append(shieldIcon, shieldText);
+  content.appendChild(shieldRow);
 
   function getBlockColor(type) {
     const colors = {
@@ -94,9 +134,5 @@
       routine: '#7a7a90', deep: '#a855f7',
     };
     return colors[type] ?? '#a855f7';
-  }
-
-  function esc(str) {
-    return (str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 })();

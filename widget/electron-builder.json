@@ -1,6 +1,7 @@
 {
-  "appId": "com.protocol.widget",
-  "productName": "Protocol Widget",
+  "appId": "com.vxlabs.protocol",
+  "productName": "Protocol",
+  "icon": "assets/icon.png",
   "directories": {
     "output": "release"
   },
@@ -8,6 +9,23 @@
     "dist/**/*",
     "assets/**/*",
     "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "dist/frontend",
+      "to": "frontend",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "resources/api",
+      "to": "api",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "assets",
+      "to": "assets",
+      "filter": ["**/*"]
+    }
   ],
   "win": {
     "target": ["nsis"]

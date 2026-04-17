@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC, WidgetState } from '../shared/types';
+import { DesktopRuntimeConfig, IPC, WidgetState } from '../shared/types';
+
+const protocolDesktop = {
+  getRuntimeConfig: () => ipcRenderer.invoke(IPC.GET_RUNTIME_CONFIG) as Promise<DesktopRuntimeConfig>,
+  showMainWindow: () => ipcRenderer.invoke(IPC.SHOW_MAIN_WINDOW),
+  showWidget: () => ipcRenderer.invoke(IPC.SHOW_WIDGET),
+  hideWidget: () => ipcRenderer.invoke(IPC.HIDE_WIDGET),
+  toggleWidget: () => ipcRenderer.invoke(IPC.TOGGLE_WIDGET),
+};
 
 contextBridge.exposeInMainWorld('protocolWidget', {
   // Renderer → Main
@@ -24,3 +32,5 @@ contextBridge.exposeInMainWorld('protocolWidget', {
     return () => ipcRenderer.removeListener(IPC.STATE_UPDATE, listener);
   },
 });
+
+contextBridge.exposeInMainWorld('protocolDesktop', protocolDesktop);

@@ -127,15 +127,22 @@ async function injectBanner() {
   host.id      = '__protocol_banner_host__';
   const shadow = host.attachShadow({ mode: 'closed' });
 
+  // Static template — no dynamic values interpolated into innerHTML.
+  // Colors are injected via CSS custom properties on the host element below.
   shadow.innerHTML = `
     <style>
+      :host {
+        --bc: #a855f7;
+        --bc-dim: #a855f744;
+        --bc-glow: #a855f71a;
+      }
       .banner {
         position: fixed;
         top: 0; left: 0; right: 0;
         height: 36px;
         background: #0a0a0f;
-        border-bottom: 1px solid ${color}44;
-        border-left: 3px solid ${color};
+        border-bottom: 1px solid var(--bc-dim);
+        border-left: 3px solid var(--bc);
         display: flex;
         align-items: center;
         gap: 10px;
@@ -144,25 +151,25 @@ async function injectBanner() {
         font-family: 'JetBrains Mono', 'Courier New', monospace;
         font-size: 11px;
         color: #e8e8f0;
-        box-shadow: 0 2px 16px ${color}1a;
+        box-shadow: 0 2px 16px var(--bc-glow);
         box-sizing: border-box;
       }
       .dot {
         width: 7px; height: 7px; border-radius: 50%;
-        background: ${color}; box-shadow: 0 0 6px ${color};
+        background: var(--bc); box-shadow: 0 0 6px var(--bc);
         flex-shrink: 0;
         animation: pulse 1.5s ease-in-out infinite;
       }
       @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       .label {
-        font-weight: 700; color: ${color};
+        font-weight: 700; color: var(--bc);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
       }
-      .sep   { color: #3a3a4a; flex-shrink: 0; }
-      .time  { color: #7a7a90; white-space: nowrap; font-size: 10px; flex-shrink: 0; }
+      .sep    { color: #3a3a4a; flex-shrink: 0; }
+      .time   { color: #7a7a90; white-space: nowrap; font-size: 10px; flex-shrink: 0; }
       .spacer { flex: 1; }
       .bar-wrap { width: 80px; height: 2px; background: #2a2a3a; flex-shrink: 0; }
-      .bar-fill { height: 100%; width: ${data.pct}%; background: ${color}; box-shadow: 0 0 4px ${color}; transition: width 0.5s ease; }
+      .bar-fill { height: 100%; width: 0%; background: var(--bc); box-shadow: 0 0 4px var(--bc); transition: width 0.5s ease; }
       .pct      { font-size: 10px; color: #4a4a5a; width: 28px; text-align: right; flex-shrink: 0; }
       .dismiss  {
         background: none; border: none; color: #4a4a5a; cursor: pointer;
@@ -173,15 +180,24 @@ async function injectBanner() {
     </style>
     <div class="banner">
       <div class="dot"></div>
-      <span class="label">${esc(label)}</span>
+      <span class="label"></span>
       <span class="sep">·</span>
-      <span class="time">${data.min > 0 ? data.min + 'm left' : 'ending soon'}</span>
+      <span class="time"></span>
       <div class="spacer"></div>
       <div class="bar-wrap"><div class="bar-fill"></div></div>
-      <span class="pct">${Math.round(data.pct)}%</span>
-      <button class="dismiss" title="Dismiss">✕</button>
+      <span class="pct"></span>
+      <button class="dismiss" title="Dismiss">&#x2715;</button>
     </div>
   `;
+
+  // Inject dynamic values via DOM — keeps innerHTML fully static above.
+  host.style.setProperty('--bc', color);
+  host.style.setProperty('--bc-dim', color + '44');
+  host.style.setProperty('--bc-glow', color + '1a');
+  shadow.querySelector('.label').textContent = label;
+  shadow.querySelector('.time').textContent  = data.min > 0 ? `${data.min}m left` : 'ending soon';
+  shadow.querySelector('.bar-fill').style.width = `${data.pct}%`;
+  shadow.querySelector('.pct').textContent   = `${Math.round(data.pct)}%`;
 
   document.body.appendChild(host);
 

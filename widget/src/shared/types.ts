@@ -57,6 +57,11 @@ export interface WindowPosition {
   y: number;
 }
 
+export interface DesktopRuntimeConfig {
+  isDesktop: true;
+  apiBaseUrl: string;
+}
+
 // IPC channel names
 export const IPC = {
   STATE_UPDATE: 'state-update',
@@ -64,4 +69,9 @@ export const IPC = {
   SET_MODE: 'set-mode',
   TOGGLE_HABIT: 'toggle-habit',
   GET_STATE: 'get-state',
+  GET_RUNTIME_CONFIG: 'get-runtime-config',
+  SHOW_MAIN_WINDOW: 'show-main-window',
+  SHOW_WIDGET: 'show-widget',
+  HIDE_WIDGET: 'hide-widget',
+  TOGGLE_WIDGET: 'toggle-widget',
 } as const;

@@ -5,9 +5,14 @@ import type { NotificationPreferences } from '@/types'
 
 type PermissionState = 'default' | 'granted' | 'denied' | 'unsupported'
 
-export function useNotifications() {
+interface UseNotificationsOptions {
+  enabled?: boolean
+}
+
+export function useNotifications(options: UseNotificationsOptions = {}) {
+  const enabled = options.enabled ?? true
   const [permission, setPermission] = useState<PermissionState>(() => {
-    if (typeof Notification === 'undefined') return 'unsupported'
+    if (!enabled || typeof Notification === 'undefined') return 'unsupported'
     return Notification.permission as PermissionState
   })
   const [subscribed, setSubscribed] = useState(false)
@@ -21,11 +26,19 @@ export function useNotifications() {
   const [prefsLoading, setPrefsLoading] = useState(true)
 
   useEffect(() => {
+    if (!enabled) {
+      setPermission('unsupported')
+      setSubscribed(false)
+      setPrefsLoading(false)
+      return
+    }
+
     checkExistingSubscription()
     fetchPreferences()
-  }, [])
+  }, [enabled])
 
   const checkExistingSubscription = async () => {
+    if (!enabled) return
     try {
       const reg = await navigator.serviceWorker?.ready
       const sub = await reg?.pushManager?.getSubscription()
@@ -36,6 +49,7 @@ export function useNotifications() {
   }
 
   const fetchPreferences = async () => {
+    if (!enabled) return
     try {
       const res = await api.get<NotificationPreferences>(API_ENDPOINTS.NOTIFICATION_PREFERENCES)
       setPreferences(res.data)
@@ -47,7 +61,7 @@ export function useNotifications() {
   }
 
   const subscribe = useCallback(async () => {
-    if (typeof Notification === 'undefined') return
+    if (!enabled || typeof Notification === 'undefined') return
     setLoading(true)
 
     try {
@@ -78,9 +92,10 @@ export function useNotifications() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   const unsubscribe = useCallback(async () => {
+    if (!enabled) return
     setLoading(true)
     try {
       const reg = await navigator.serviceWorker.ready
@@ -97,9 +112,10 @@ export function useNotifications() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   const updatePreferences = useCallback(async (updated: NotificationPreferences) => {
+    if (!enabled) return
     setPreferences(updated)
     try {
       const res = await api.put<NotificationPreferences>(API_ENDPOINTS.NOTIFICATION_PREFERENCES, updated)
@@ -107,11 +123,12 @@ export function useNotifications() {
     } catch {
       fetchPreferences()
     }
-  }, [])
+  }, [enabled])
 
   const sendTest = useCallback(async () => {
+    if (!enabled) return
     await api.post(API_ENDPOINTS.NOTIFICATION_TEST)
-  }, [])
+  }, [enabled])
 
   return {
     permission,

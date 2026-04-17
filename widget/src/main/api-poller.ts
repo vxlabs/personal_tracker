@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, powerMonitor } from 'electron';
 import { IPC, WidgetState, HabitStatus, TimeBlock, WidgetMode } from '../shared/types';
 import { updateTrayStatus } from './tray';
 
-const API_BASE = 'http://localhost:5000/api';
+let apiBaseUrl = 'http://localhost:5000/api';
 const POLL_INTERVAL_MS = 30_000;
 const POLL_INTERVAL_OFFLINE_MS = 5_000; // retry faster while API is unreachable
 const ALERT_POLL_INTERVAL_MS = 5_000;
@@ -144,6 +144,10 @@ async function fetchJson<T>(url: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+function apiUrl(path: string): string {
+  return `${apiBaseUrl}${path}`;
+}
+
 function formatTimeLabel(value?: string): string | undefined {
   if (!value) return undefined;
   const [hours, minutes] = value.split(':').map(Number);
@@ -167,7 +171,7 @@ async function ensureDaySchedule(): Promise<boolean> {
   const today = new Date().getDay();
   if (cachedDay === today && cachedDayBlocks.length > 0) return true;
   try {
-    cachedDayBlocks = await fetchJson<ApiBlockDto[]>(`${API_BASE}/schedule/${DAY_NAMES[today]}`);
+    cachedDayBlocks = await fetchJson<ApiBlockDto[]>(apiUrl(`/schedule/${DAY_NAMES[today]}`));
     cachedDay = today;
     return true;
   } catch (err) {
@@ -180,7 +184,7 @@ async function ensureDaySchedule(): Promise<boolean> {
 async function fetchState(): Promise<Partial<WidgetState>> {
   const [scheduleOk, habitsRes] = await Promise.all([
     ensureDaySchedule(),
-    Promise.allSettled([fetchJson<ApiHabit[]>(`${API_BASE}/habits/today`)]).then((r) => r[0]),
+    Promise.allSettled([fetchJson<ApiHabit[]>(apiUrl('/habits/today'))]).then((r) => r[0]),
   ]);
 
   return {
@@ -227,7 +231,7 @@ async function poll(widget: BrowserWindow): Promise<void> {
   const remaining = current && mins > 0 ? `${mins} min` : undefined;
   const tooltip = current
     ? `${current.label}${remaining ? ` — ${remaining} remaining` : ''}`
-    : 'Protocol Widget';
+    : 'Protocol';
 
   updateTrayStatus({
     currentLabel: current?.label,
@@ -253,7 +257,7 @@ async function poll(widget: BrowserWindow): Promise<void> {
 async function pollBlockedAttemptAlert(): Promise<void> {
   try {
     const recent = await fetchJson<ApiRecentBlockedAttempt | null>(
-      `${API_BASE}/focus/blocked-attempts/recent?seconds=45`
+      apiUrl('/focus/blocked-attempts/recent?seconds=45')
     );
 
     if (!recent || recent.id === lastBlockedAttemptId) {
@@ -328,7 +332,7 @@ export function startApiPoller(widget: BrowserWindow): void {
       if (!habit) return;
       try {
         const method = habit.done ? 'DELETE' : 'POST';
-        await fetch(`${API_BASE}/habits/${numId}/check`, { method });
+        await fetch(apiUrl(`/habits/${numId}/check`), { method });
         if (activeWidget && !activeWidget.isDestroyed()) {
           await poll(activeWidget);
         }
@@ -366,6 +370,10 @@ export function stopApiPoller(): void {
 
 export function getLastWidgetState(): WidgetState {
   return lastState;
+}
+
+export function setApiBaseUrl(nextApiBaseUrl: string): void {
+  apiBaseUrl = nextApiBaseUrl.replace(/\/$/, '');
 }
 
 /** Register a one-shot callback that fires when the first non-rest block is detected.

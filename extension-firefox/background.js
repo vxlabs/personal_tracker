@@ -1,11 +1,51 @@
-const API_BASE = 'http://localhost:5000/api';
-const POLL_INTERVAL_MINUTES = 1;
+/**
+ * Protocol Enforcer — Firefox background script (MV2, WebExtensions API)
+ *
+ * Port discovery:
+ *   In desktop (packaged) mode, the Protocol Electron app registers itself as
+ *   a native messaging host under the ID "com.vxlabs.protocol".  We query it
+ *   to get the dynamic API port and persist the result in browser.storage.local
+ *   so it survives background script restarts.
+ *
+ *   In dev/browser-only mode the query fails silently and we fall back to
+ *   http://localhost:5000/api.
+ */
 
-// ── Day-schedule cache ────────────────────────────────────────────────────────
+const NMH_NAME        = 'com.vxlabs.protocol';
+const DEV_API_BASE    = 'http://localhost:5000/api';
+const POLL_INTERVAL_MINUTES = 1;
+const REDISCOVER_AFTER_FAILURES = 3;
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 let cachedBlocks = [];
-let cachedDay    = -1; // 0=Sun … 6=Sat, -1=not loaded
+let cachedDay    = -1;
+let apiBase      = DEV_API_BASE;
+let pollFailures = 0;
+
+// ── Port discovery via native messaging ───────────────────────────────────────
+
+async function discoverApiPort() {
+  try {
+    // browser.runtime.sendNativeMessage returns a Promise in Firefox
+    const response = await browser.runtime.sendNativeMessage(NMH_NAME, { type: 'get-port' });
+    if (response?.status === 'ok' && response?.baseUrl) {
+      apiBase = response.baseUrl;
+      await browser.storage.local.set({ apiBase });
+      return true;
+    }
+    return false;
+  } catch {
+    // NMH not registered (dev mode) or Protocol not running
+    return false;
+  }
+}
+
+async function loadStoredApiBase() {
+  const result = await browser.storage.local.get('apiBase');
+  if (result.apiBase) apiBase = result.apiBase;
+}
+
+// ── Schedule helpers ──────────────────────────────────────────────────────────
 
 function parseHHMM(t) {
   const [h, m] = t.split(':').map(Number);
@@ -16,8 +56,8 @@ async function ensureDaySchedule() {
   const today = new Date().getDay();
   if (cachedDay === today && cachedBlocks.length > 0) return true;
   try {
-    const res = await fetch(`${API_BASE}/schedule/${DAY_NAMES[today]}`);
-    if (!res.ok) return cachedBlocks.length > 0; // keep stale cache on error
+    const res = await fetch(`${apiBase}/schedule/${DAY_NAMES[today]}`);
+    if (!res.ok) return cachedBlocks.length > 0;
     cachedBlocks = await res.json();
     cachedDay    = today;
     return true;
@@ -43,7 +83,6 @@ function computeCurrentState() {
     }
   }
 
-  // Not in a block — find next upcoming block today
   if (!currentBlock) {
     nextBlock = cachedBlocks.find((b) => parseHHMM(b.startTime) > cur) ?? null;
   }
@@ -55,7 +94,7 @@ function computeCurrentState() {
   const percentComplete = currentBlock
     ? Math.round(
         (cur - parseHHMM(currentBlock.startTime)) /
-        (parseHHMM(currentBlock.endTime) - parseHHMM(currentBlock.startTime)) * 100
+        (parseHHMM(currentBlock.endTime) - parseHHMM(currentBlock.startTime)) * 100,
       )
     : 0;
 
@@ -65,19 +104,25 @@ function computeCurrentState() {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 browser.runtime.onInstalled.addListener(() => {
-  cachedDay = -1; // force fresh schedule fetch on install/update
+  cachedDay = -1;
   browser.alarms.create('poll', { periodInMinutes: POLL_INTERVAL_MINUTES });
-  pollStatus();
+  initAndPoll();
 });
 
 browser.runtime.onStartup.addListener(() => {
-  cachedDay = -1; // new browser session — may be a new day
-  pollStatus();
+  cachedDay = -1;
+  initAndPoll();
 });
 
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'poll') pollStatus();
 });
+
+async function initAndPoll() {
+  await loadStoredApiBase();
+  await discoverApiPort();
+  pollStatus();
+}
 
 // ── Polling ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +130,7 @@ async function pollStatus() {
   try {
     const [scheduleOk, sitesRes] = await Promise.all([
       ensureDaySchedule(),
-      fetch(`${API_BASE}/blocked-sites`),
+      fetch(`${apiBase}/blocked-sites`),
     ]);
 
     if (!scheduleOk || !sitesRes.ok) throw new Error('API error');
@@ -105,15 +150,25 @@ async function pollStatus() {
       blockedDomains:   activeDomains,
       lastUpdated:      Date.now(),
       online:           true,
+      apiBase,
     };
 
     await browser.storage.local.set({ state });
+    pollFailures = 0;
 
     updateBadge(state);
     updateIcon(state);
   } catch {
+    pollFailures += 1;
+
+    if (pollFailures >= REDISCOVER_AFTER_FAILURES) {
+      pollFailures = 0;
+      cachedDay    = -1;
+      await discoverApiPort();
+    }
+
     await browser.storage.local.set({
-      state: { online: false, isFocusBlock: false, lastUpdated: Date.now() },
+      state: { online: false, isFocusBlock: false, lastUpdated: Date.now(), apiBase },
     });
     browser.browserAction.setBadgeText({ text: '' });
     setDefaultIcon();
@@ -183,8 +238,7 @@ function updateIcon(state) {
     ctx.globalAlpha = 1;
   }
 
-  const imageData = ctx.getImageData(0, 0, 19, 19);
-  browser.browserAction.setIcon({ imageData });
+  browser.browserAction.setIcon({ imageData: ctx.getImageData(0, 0, 19, 19) });
 }
 
 function setDefaultIcon() {
@@ -208,7 +262,7 @@ browser.runtime.onMessage.addListener((message) => {
 
 async function logBlockedAttempt({ site, blockLabel, blockType }) {
   try {
-    await fetch(`${API_BASE}/focus/blocked-attempt`, {
+    await fetch(`${apiBase}/focus/blocked-attempt`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({

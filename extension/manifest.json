@@ -3,13 +3,19 @@
   "name": "Protocol Enforcer",
   "version": "1.0.0",
   "description": "Enforces your Protocol schedule — blocks distracting sites during focus blocks.",
+
+  "_comment_key": "Generate this key once with: npm run generate-extension-key (see scripts/). Paste the output here to get a stable extension ID. Without it each unpacked install gets a random ID and the desktop app cannot whitelist it.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1cTPOFV2IQRAylKkuPYdhBWZnsmEjuS7pwHLPDODIh9M/nwRnM/HCVxWCqsLgAKbY1wr9mS37u1iJGxsidH49dOKCAEAHiLzv0OVCf6elnUDbxJ9rhtiXCsTNZ1YtBS2ADkWBnyTWtXl7QI/VbAFqkp1ILIGX74hOynjB2zQMHHKvAMjPRKUnIMAqRThx7E2tCjZ0dwFNmkmbXsFTGEMKqvOZKA2YSY+yfxQFzvUBh3jHlFGuy/Wu1cpz34B5etM0LUzdFMS9nIrbX0JC6Bwk5Zh+9VntXsc9RcVUnWWk0jxZTNajEvsroSEbygmsE2gOh+AfKZNYaWSxdn6xAQ02QIDAQAB",
+
   "permissions": [
     "storage",
     "alarms",
-    "tabs"
+    "tabs",
+    "nativeMessaging"
   ],
   "host_permissions": [
-    "http://localhost:5000/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
     "<all_urls>"
   ],
   "content_scripts": [{

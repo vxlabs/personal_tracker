@@ -1,9 +1,35 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Protocol.Api.Data;
 using Protocol.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseWindowsService(); // Allows running as a Windows Service
+if (OperatingSystem.IsWindows() && Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
+{
+    builder.Host.UseWindowsService(); // Allows running as a Windows Service
+}
+else
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
+
+var configuredPort = Environment.GetEnvironmentVariable("PROTOCOL_PORT");
+if (!string.IsNullOrWhiteSpace(configuredPort))
+{
+    builder.WebHost.UseUrls($"http://127.0.0.1:{configuredPort}");
+}
+
+var dataDir = Environment.GetEnvironmentVariable("PROTOCOL_DATA_DIR");
+var vaultDir = Environment.GetEnvironmentVariable("PROTOCOL_VAULT_DIR")
+    ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        "Protocol-Vault");
+
+Directory.CreateDirectory(vaultDir);
+builder.Configuration["Protocol:VaultDirectory"] = vaultDir;
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -12,7 +38,17 @@ builder.Services.AddSwaggerGen();
 
 // DbContext
 builder.Services.AddDbContext<ProtocolDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (!string.IsNullOrWhiteSpace(dataDir))
+    {
+        Directory.CreateDirectory(dataDir);
+        var dbPath = Path.Combine(dataDir, "protocol.db");
+        options.UseSqlite($"Data Source={dbPath}");
+        return;
+    }
+
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
 
 // Services
 builder.Services.AddScoped<ScheduleService>();
@@ -47,6 +83,7 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+var startTime = DateTime.UtcNow;
 
 // Auto-migrate and seed on startup
 using (var scope = app.Services.CreateScope())
@@ -71,6 +108,24 @@ if (app.Environment.IsDevelopment())
 app.UseCors(app.Environment.IsDevelopment() ? "DevFrontend" : "Production");
 app.MapControllers();
 
-app.MapGet("/api/health", () => new { status = "ok", app = "Protocol", time = DateTime.UtcNow });
+app.MapGet("/api/health", () => new
+{
+    status = "ok",
+    app = "Protocol",
+    time = DateTime.UtcNow,
+    uptimeSeconds = Math.Round((DateTime.UtcNow - startTime).TotalSeconds, 1),
+});
 
-app.Run();
+await app.StartAsync();
+
+var server = app.Services.GetRequiredService<IServer>();
+var addresses = server.Features.Get<IServerAddressesFeature>();
+var actualAddress = addresses?.Addresses.FirstOrDefault();
+
+if (actualAddress is not null)
+{
+    var actualPort = new Uri(actualAddress).Port;
+    Console.WriteLine($"PROTOCOL_API_READY:{actualPort}");
+}
+
+await app.WaitForShutdownAsync();

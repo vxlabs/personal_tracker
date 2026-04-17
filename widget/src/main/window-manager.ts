@@ -1,12 +1,7 @@
 import path from 'path';
 import fs from 'fs';
+import { app } from 'electron';
 import { WidgetMode, WindowPosition } from '../shared/types';
-
-const CONFIG_DIR = path.join(
-  process.env.APPDATA ?? process.env.HOME ?? '.',
-  'protocol-widget'
-);
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 interface Config {
   position?: WindowPosition;
@@ -59,9 +54,10 @@ export class WindowManager {
   }
 
   private load(): Config {
+    const configFile = path.join(app.getPath('userData'), 'config.json');
     try {
-      if (fs.existsSync(CONFIG_FILE)) {
-        const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      if (fs.existsSync(configFile)) {
+        const raw = fs.readFileSync(configFile, 'utf-8');
         return JSON.parse(raw) as Config;
       }
     } catch {
@@ -71,9 +67,11 @@ export class WindowManager {
   }
 
   private persist(): void {
+    const configDir = app.getPath('userData');
+    const configFile = path.join(configDir, 'config.json');
     try {
-      fs.mkdirSync(CONFIG_DIR, { recursive: true });
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2));
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(configFile, JSON.stringify(this.config, null, 2));
     } catch {
       // Non-fatal — position just won't persist
     }

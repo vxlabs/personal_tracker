@@ -2,6 +2,8 @@
 backend/**/bin/
 backend/**/obj/
 backend/**/*.user
+backend/**/appsettings.json
+backend/**/appsettings.*.json
 *.db
 
 # Node
@@ -9,6 +11,10 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+widget/node_modules/
+widget/dist/
+widget/release/
+widget/resources/api/
 
 # OS
 .DS_Store
@@ -19,3 +25,8 @@ Thumbs.db
 .idea/
 *.suo
 *.ncrunch*
+
+# Local docs and tooling
+docs/
+.claude/
+.codex-desktop-smoke/

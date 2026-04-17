@@ -1,11 +1,63 @@
-const API_BASE = 'http://localhost:5000/api';
-const POLL_INTERVAL_MINUTES = 1;
+/**
+ * Protocol Enforcer — Chrome/Chromium background service worker (MV3)
+ *
+ * Port discovery:
+ *   In desktop (packaged) mode, the Protocol Electron app registers itself as
+ *   a native messaging host.  We query it to get the dynamic API port, then
+ *   store the result in chrome.storage.local so it survives service-worker
+ *   restarts (MV3 service workers can be terminated at any time).
+ *
+ *   In dev/browser-only mode the native messaging query fails silently and we
+ *   fall back to http://localhost:5000/api.
+ */
 
-// ── Day-schedule cache ────────────────────────────────────────────────────────
+const NMH_NAME        = 'com.vxlabs.protocol';
+const DEV_API_BASE    = 'http://localhost:5000/api';
+const POLL_INTERVAL_MINUTES = 1;
+const REDISCOVER_AFTER_FAILURES = 3; // re-query NMH after this many consecutive poll failures
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 let cachedBlocks = [];
-let cachedDay    = -1; // 0=Sun … 6=Sat, -1=not loaded
+let cachedDay    = -1;
+let apiBase      = DEV_API_BASE;   // updated after NMH discovery
+let pollFailures = 0;
+
+// ── Port discovery via native messaging ───────────────────────────────────────
+
+async function discoverApiPort() {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendNativeMessage(
+        NMH_NAME,
+        { type: 'get-port' },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            // NMH not registered (dev mode or desktop app not installed)
+            resolve(false);
+            return;
+          }
+          if (response?.status === 'ok' && response?.baseUrl) {
+            apiBase = response.baseUrl;
+            chrome.storage.local.set({ apiBase }); // persist across SW restarts
+            resolve(true);
+          } else {
+            // Desktop app is installed but Protocol is not running yet
+            resolve(false);
+          }
+        },
+      );
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+async function loadStoredApiBase() {
+  const result = await chrome.storage.local.get('apiBase');
+  if (result.apiBase) apiBase = result.apiBase;
+}
+
+// ── Schedule helpers ──────────────────────────────────────────────────────────
 
 function parseHHMM(t) {
   const [h, m] = t.split(':').map(Number);
@@ -16,8 +68,8 @@ async function ensureDaySchedule() {
   const today = new Date().getDay();
   if (cachedDay === today && cachedBlocks.length > 0) return true;
   try {
-    const res = await fetch(`${API_BASE}/schedule/${DAY_NAMES[today]}`);
-    if (!res.ok) return cachedBlocks.length > 0; // keep stale cache on error
+    const res = await fetch(`${apiBase}/schedule/${DAY_NAMES[today]}`);
+    if (!res.ok) return cachedBlocks.length > 0;
     cachedBlocks = await res.json();
     cachedDay    = today;
     return true;
@@ -43,7 +95,6 @@ function computeCurrentState() {
     }
   }
 
-  // Not in a block — find next upcoming block today
   if (!currentBlock) {
     nextBlock = cachedBlocks.find((b) => parseHHMM(b.startTime) > cur) ?? null;
   }
@@ -55,7 +106,7 @@ function computeCurrentState() {
   const percentComplete = currentBlock
     ? Math.round(
         (cur - parseHHMM(currentBlock.startTime)) /
-        (parseHHMM(currentBlock.endTime) - parseHHMM(currentBlock.startTime)) * 100
+        (parseHHMM(currentBlock.endTime) - parseHHMM(currentBlock.startTime)) * 100,
       )
     : 0;
 
@@ -65,19 +116,25 @@ function computeCurrentState() {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
-  cachedDay = -1; // force fresh schedule fetch on install/update
+  cachedDay = -1;
   chrome.alarms.create('poll', { periodInMinutes: POLL_INTERVAL_MINUTES });
-  pollStatus();
+  initAndPoll();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  cachedDay = -1; // new browser session — may be a new day
-  pollStatus();
+  cachedDay = -1;
+  initAndPoll();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'poll') pollStatus();
 });
+
+async function initAndPoll() {
+  await loadStoredApiBase(); // restore persisted URL first (fast path)
+  await discoverApiPort();   // then try NMH for a fresh URL
+  pollStatus();
+}
 
 // ── Polling ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +142,7 @@ async function pollStatus() {
   try {
     const [scheduleOk, sitesRes] = await Promise.all([
       ensureDaySchedule(),
-      fetch(`${API_BASE}/blocked-sites`),
+      fetch(`${apiBase}/blocked-sites`),
     ]);
 
     if (!scheduleOk || !sitesRes.ok) throw new Error('API error');
@@ -105,16 +162,27 @@ async function pollStatus() {
       blockedDomains:   activeDomains,
       lastUpdated:      Date.now(),
       online:           true,
+      apiBase,
     };
 
     await chrome.storage.local.set({ state });
+    pollFailures = 0;
 
     updateBadge(state);
     updateIcon(state);
   } catch {
-    // API unreachable — mark offline
+    pollFailures += 1;
+
+    // Re-discover the port after several failures — Protocol may have restarted
+    // with a different port.
+    if (pollFailures >= REDISCOVER_AFTER_FAILURES) {
+      pollFailures = 0;
+      cachedDay    = -1; // invalidate schedule cache
+      await discoverApiPort();
+    }
+
     await chrome.storage.local.set({
-      state: { online: false, isFocusBlock: false, lastUpdated: Date.now() },
+      state: { online: false, isFocusBlock: false, lastUpdated: Date.now(), apiBase },
     });
     chrome.action.setBadgeText({ text: '' });
     setDefaultIcon();
@@ -161,31 +229,26 @@ function updateIcon(state) {
     ? getBlockColor(state.currentBlock.type)
     : '#3a3a4a';
 
-  // Background
   ctx.fillStyle = '#0a0a0f';
   ctx.fillRect(0, 0, 19, 19);
 
-  // Outer ring
   ctx.strokeStyle = color;
   ctx.lineWidth   = 2;
   ctx.beginPath();
   ctx.arc(9.5, 9.5, 8, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Fill for focus blocks (solid), outline only for non-focus
   if (state?.isFocusBlock) {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(9.5, 9.5, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Inner dark dot
     ctx.fillStyle = '#0a0a0f';
     ctx.beginPath();
     ctx.arc(9.5, 9.5, 2.5, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    // Dim dot for non-focus
     ctx.fillStyle   = color;
     ctx.globalAlpha = 0.4;
     ctx.beginPath();
@@ -194,8 +257,7 @@ function updateIcon(state) {
     ctx.globalAlpha = 1;
   }
 
-  const imageData = ctx.getImageData(0, 0, 19, 19);
-  chrome.action.setIcon({ imageData });
+  chrome.action.setIcon({ imageData: ctx.getImageData(0, 0, 19, 19) });
 }
 
 function setDefaultIcon() {
@@ -208,8 +270,7 @@ function setDefaultIcon() {
   ctx.beginPath();
   ctx.arc(9.5, 9.5, 8, 0, Math.PI * 2);
   ctx.stroke();
-  const imageData = ctx.getImageData(0, 0, 19, 19);
-  chrome.action.setIcon({ imageData });
+  chrome.action.setIcon({ imageData: ctx.getImageData(0, 0, 19, 19) });
 }
 
 // ── Message handling ──────────────────────────────────────────────────────────
@@ -218,14 +279,11 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'BLOCKED_ATTEMPT') {
     logBlockedAttempt(message);
   }
-  if (message.type === 'GET_STATE') {
-    // handled via chrome.storage in popup/blocked page directly
-  }
 });
 
 async function logBlockedAttempt({ site, blockLabel, blockType }) {
   try {
-    await fetch(`${API_BASE}/focus/blocked-attempt`, {
+    await fetch(`${apiBase}/focus/blocked-attempt`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({

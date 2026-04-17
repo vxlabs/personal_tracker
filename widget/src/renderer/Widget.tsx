@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { WidgetState, WidgetMode } from '../shared/types';
 import { getBridge } from './api';
 import { CompactView } from './CompactView';
@@ -86,13 +86,32 @@ export function Widget() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const isDragging = useRef(false);
+
+  // Global mouseup clears drag state so onMouseLeave can restore click-through
+  useEffect(() => {
+    const onMouseUp = () => {
+      isDragging.current = false;
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
   // Mouse enter/leave: toggle click-through passthrough
   const onMouseEnter = useCallback(() => {
     getBridge()?.setIgnoreMouse(false);
   }, []);
 
   const onMouseLeave = useCallback(() => {
-    getBridge()?.setIgnoreMouse(true);
+    // Don't restore click-through mid-drag — the mouse leaves the window bounds
+    // during a drag but we still need mouse events to complete it.
+    if (!isDragging.current) {
+      getBridge()?.setIgnoreMouse(true);
+    }
+  }, []);
+
+  const onMouseDown = useCallback(() => {
+    isDragging.current = true;
   }, []);
 
   const expand = useCallback(() => getBridge()?.setMode('expanded'), []);
@@ -120,6 +139,7 @@ export function Widget() {
       style={{ ['--accent-color' as string]: blockColor }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onMouseDown={onMouseDown}
     >
       <div
         key={mode}
