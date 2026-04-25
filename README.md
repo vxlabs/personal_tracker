@@ -1,41 +1,119 @@
 # Protocol
 
-> A personal discipline enforcement system with a dark cyberpunk aesthetic.
+> A personal discipline enforcement system — schedule awareness, habit tracking, focus sessions, website activity intelligence, and a knowledge wiki, all running locally with a dark cyberpunk aesthetic.
 
-![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6)
+![Electron](https://img.shields.io/badge/Electron-28-47848F)
+![ML.NET](https://img.shields.io/badge/ML.NET-On--Device-742774)
 
-Protocol tracks your daily schedule, habits, focus sessions, and XP — and enforces focus blocks by blocking distracting websites through a paired browser extension.
+<p align="center">
+  <b>Schedule · Habits · Focus · Activity Intelligence · Wiki · XP</b>
+</p>
+
+---
+
+## What Is Protocol?
+
+Protocol answers one question: **"What should I be doing RIGHT NOW?"**
+
+It combines a weekly time-block schedule, habit tracker, timed focus sessions, browser-level site blocking, a personal knowledge wiki, and an XP gamification system into a single local-first app. A desktop widget floats on your screen as a constant reminder. Browser extensions enforce focus blocks by blocking distracting sites. And an on-device ML model learns your browsing patterns to automatically classify website activity as Productive, Neutral, or Distracting.
+
+Everything runs on your machine. No cloud. No accounts. No subscriptions.
 
 ---
 
 ## Features
 
-- **Schedule** — Full weekly time-block schedule with a live current-block indicator
-- **Habits** — Daily habit tracking with streak calculation and weekend-aware logic
-- **Focus Mode** — Timed focus sessions with an immersive fullscreen overlay
-- **Site Blocker** — Browser extension blocks distracting sites during focus blocks
-- **Daily Review** — Three-point daily reflection with calendar heatmap
-- **Weekly Report** — Auto-generated stats: habit compliance, focus hours, streaks, overall score
-- **XP & Ranks** — Gamified XP system with rank progression
-- **Desktop Widget** — Always-on-top Electron overlay showing current block + timer
-- **Activity Intelligence** — Tracks desktop browser activity, classifies website productivity using an on-device ML.NET model trained on domain + URL + page title, and groups activity by domain in a collapsible tree view
-- **PWA** — Installable on mobile with offline caching and background sync
-- **Push Notifications** — Block transition alerts, habit reminders, sleep warnings
+| Feature | Description |
+|---------|-------------|
+| **NOW Card** | A large, impossible-to-ignore card showing your current schedule block and countdown |
+| **Schedule** | Full weekly time-block schedule with live current-block indicator |
+| **Habits** | Daily habit tracking with streak calculation and weekend-aware logic |
+| **Focus Mode** | Timed focus sessions with an immersive fullscreen overlay |
+| **Site Blocker** | Browser extensions block distracting sites during focus blocks |
+| **Activity Intelligence** | Tracks browser activity and classifies productivity using on-device ML (see below) |
+| **Knowledge Wiki** | Capture URLs/notes → AI extracts markdown → compiles into wiki pages → full-text search |
+| **Daily Review** | Three-point daily reflection with calendar heatmap |
+| **Weekly Report** | Auto-generated stats: habit compliance, focus hours, streaks, overall score |
+| **XP & Ranks** | Gamified XP system with military rank progression (Recruit → General) |
+| **Desktop Widget** | Always-on-top Electron overlay showing current block + timer + habit dots |
+| **PWA** | Installable on mobile with offline caching and background sync |
+| **Push Notifications** | Block transition alerts, habit reminders, sleep warnings |
 
 ---
 
-## Stack
+## On-Device ML: Why and How It Works
+
+The **Activity Intelligence** feature is one of Protocol's most interesting technical pieces. Here's why it exists and how it improves the app.
+
+### The Problem
+
+Manually labeling every website you visit doesn't scale. A typical day generates 50–200 distinct page visits across dozens of domains. And many domains are **ambiguous** — YouTube hosts university lectures and cat compilations on the same hostname, GitHub has your work repos and trending memes, Google serves search results for "distributed systems paper" and "best pizza near me."
+
+Rule-based approaches (blocklists, allow-lists, domain-level tags) can't distinguish these. You need something that understands *what* you were looking at, not just *where*.
+
+### The Solution: A Personal ML Classifier
+
+Protocol trains an **ML.NET multiclass classifier** (`SdcaMaximumEntropy`) directly on your machine, using your own manually labeled examples. It learns *your* definition of productive vs distracting — not some generic model.
+
+The classifier uses **three text features** that together capture enough signal to generalize:
+
+| Feature | What It Captures | Example |
+|---------|-----------------|---------|
+| **Domain** | Broad site category | `github.com` → likely productive, `reddit.com` → likely distracting |
+| **URL path + query** | Specific resource within a domain | `/watch?v=dQw4w9WgXcQ` vs `/watch?v=MLlecture01` |
+| **Page title** | Human-readable content summary | "Intro to Kubernetes" vs "Funny Fails Compilation" |
+
+The page title is the **strongest signal** — titles like "React Performance Optimization" vs "Top 10 Memes" are immediately separable even on identical domains.
+
+### How It Improves the App
+
+- **Real-Time Classification** — Every browser heartbeat gets a Productive/Neutral/Distracting label and confidence score the moment it arrives. No manual tagging needed for sites the model has seen patterns for.
+
+- **Meaningful Dashboards** — The activity dashboard (time-by-label charts, domain groups, weekly summaries) is only useful when sessions are labeled. Without ML, most sessions show "Unclassified" and the charts are meaningless.
+
+- **Human-in-the-Loop** — Manual labels always override ML predictions. Corrections become training examples for the next model iteration. The model converges toward your preferences over time.
+
+- **Zero Cloud Dependency** — Trains and runs entirely on your machine using ML.NET. No API calls, no data leaves your device. The model is a single `.zip` file (~KB).
+
+- **Low Data Requirements** — The model trains with as few as **9 labeled examples** (3 per category). As you label more, accuracy improves.
+
+### Technical Details
+
+- **Algorithm:** SDCA Maximum Entropy — a linear multiclass classifier that trains in seconds on small datasets
+- **Pipeline:** Domain, URL, and Title are independently featurized via bag-of-words/n-grams, then concatenated into a single feature vector
+- **Priority Cascade:** Manual label → ML prediction → Unclassified (human intent is never overridden)
+- **Schema Safety:** If the model was trained with an older feature set, the prediction engine gracefully returns null instead of crashing
+- **Storage:** Model persisted to `Data/ml/website-productivity.zip`
+
+### Future ML Enhancements
+
+We're looking for contributors to help build these next-generation features:
+
+| Enhancement | Impact | Difficulty |
+|-------------|--------|------------|
+| Time-of-day features | Same site can be productive at 10am and distracting at 10pm | Medium |
+| Active-seconds weighting | Long sessions contribute more to training than 2-second blips | Easy |
+| Cross-session context | Sequential patterns (GitHub → SO → Docs = productive work session) | Hard |
+| Confidence thresholds | Low-confidence predictions surfaced for manual review | Easy |
+| Per-domain micro-models | Specialized classifiers for ambiguous domains (YouTube, Reddit) | Medium |
+| Model evaluation metrics | Track precision/recall/F1 across retrain cycles | Medium |
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
-|---|---|
+|-------|------------|
 | Backend | .NET 8 · ASP.NET Core · EF Core 8 · SQLite · ML.NET · WebPush (VAPID) |
 | Frontend | React 18 · TypeScript · Vite · Tailwind CSS v4 · Zustand · Axios |
 | Extension (Chrome/Edge) | Manifest V3 · Vanilla JS |
 | Extension (Firefox) | Manifest V2 · Vanilla JS |
-| Desktop Widget | Electron · React · TypeScript |
+| Desktop Widget | Electron 28 · React · TypeScript · electron-builder |
+| Desktop Capture | FlaUI (Windows UI Automation) for browser URL extraction |
 
 ---
 
@@ -43,45 +121,47 @@ Protocol tracks your daily schedule, habits, focus sessions, and XP — and enfo
 
 ```
 personal_tracker/
-├── backend/
-│   └── Protocol.Api/          # .NET 8 Web API
-│       ├── Controllers/
-│       ├── Models/
-│       ├── Services/
-│       └── Data/
-├── frontend/                  # React + Vite SPA
+├── backend/Protocol.Api/          # .NET 8 Web API
+│   ├── Controllers/               # REST API controllers
+│   ├── Models/                    # EF Core entities
+│   ├── Services/                  # Business logic + ML classifier
+│   └── Data/                      # DbContext, migrations, seeder
+├── frontend/                      # React + Vite SPA
 │   └── src/
-├── extension/                 # Chrome / Edge extension (Manifest V3)
-├── extension-firefox/         # Firefox extension (Manifest V2)
-├── widget/                    # Electron desktop widget
-│   └── src/
-├── docs/
-│   └── wiki/                  # Wiki pages
-├── docker-compose.yml
-└── LICENSE
+│       ├── components/            # UI components (dashboard, wiki, settings)
+│       ├── hooks/                 # Custom React hooks
+│       ├── pages/                 # Route pages + wiki sub-pages
+│       ├── constants/api.ts       # API_ENDPOINTS (never hard-code URLs)
+│       └── types/                 # TypeScript interfaces
+├── extension/                     # Chrome / Edge extension (Manifest V3)
+├── extension-firefox/             # Firefox extension (Manifest V2)
+├── widget/                        # Electron desktop widget
+│   ├── src/main/                  # Main process (embedded API, poller, tray)
+│   ├── src/renderer/              # Widget React UI
+│   └── electron-builder.json      # Packaging config
+├── docs/wiki/                     # Project wiki pages
+├── package-widget.ps1             # One-command packaging script
+├── dev-desktop.ps1                # Desktop development launcher
+└── docker-compose.yml
 ```
 
 ---
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 | Tool | Version | Download |
-|---|---|---|
-| .NET SDK | 8.0+ | [dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0) |
-| Node.js | 18+ (LTS recommended) | [nodejs.org/en/download](https://nodejs.org/en/download) |
+|------|---------|----------|
+| .NET SDK | 8.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| Node.js | 18+ LTS | [nodejs.org](https://nodejs.org/en/download) |
 | npm | 9+ | Bundled with Node.js |
-| web-ext *(Firefox signing only)* | latest | `npm install -g web-ext` |
 
-> **Verify your installs:**
-> ```bash
-> dotnet --version   # should print 8.x.x
-> node --version     # should print v18.x.x or higher
-> npm --version      # should print 9.x.x or higher
-> ```
-
----
-
-## Quick Start
+```bash
+dotnet --version   # 8.x.x
+node --version     # v18+
+npm --version      # 9+
+```
 
 ### Backend
 
@@ -91,7 +171,7 @@ dotnet restore
 dotnet run
 ```
 
-API starts at **`http://localhost:5000`**. The SQLite database is created automatically at `./data/protocol.db` on first run.
+API starts at **`http://localhost:5000`**. SQLite database is created automatically on first run.
 
 ### Frontend
 
@@ -99,33 +179,51 @@ API starts at **`http://localhost:5000`**. The SQLite database is created automa
 cd frontend
 npm install
 npm run dev        # dev server at http://localhost:5173
-npm run build      # production build → frontend/dist/
 ```
 
-The dev server proxies all `/api` requests to `:5000`.
+The dev server proxies `/api` requests to `:5000`.
 
-### Docker (full stack)
+### Docker (Full Stack)
 
 ```bash
 docker-compose up --build
 ```
 
-Runs backend on `:5000` and frontend on `:3000`. SQLite data persists in a local `./data/` volume.
+Backend on `:5000`, frontend on `:3000`. SQLite data persists in `./data/`.
+
+### Desktop Widget (Development)
+
+```bash
+cd widget
+npm install
+npm run dev
+```
+
+### Desktop Widget (Packaging)
+
+Build the full installer (publishes .NET API + builds Electron app + creates NSIS installer):
+
+```powershell
+.\package-widget.ps1
+```
+
+Output: `widget/release/Protocol Setup <version>.exe`
 
 ---
 
 ## API Reference
 
-| Group | Base Path |
-|---|---|
-| Schedule | `GET /api/schedule` · `GET /api/schedule/now` · `GET /api/schedule/{day}` |
-| Habits | `GET /api/habit` · `POST /api/habit/{id}/check` · `DELETE /api/habit/{id}/check` |
+| Group | Endpoints |
+|-------|-----------|
+| Schedule | `GET /api/schedule` · `GET /api/schedule/now` · `GET /api/schedule/{day}` · `PUT /api/schedule/{day}` |
+| Habits | `GET /api/habits/today` · `POST /api/habits/{id}/check` · `DELETE /api/habits/{id}/check` |
 | Focus | `POST /api/focus/start` · `POST /api/focus/stop` · `GET /api/focus/sessions` |
-| Blocked Sites | `GET /api/blocked-sites` · `POST /api/blocked-sites` · `DELETE /api/blocked-sites/{id}` |
+| Activity | `POST /api/activity/heartbeat` · `POST /api/activity/finalize` · `GET /api/activity/summary` · `GET/PUT /api/activity/labels` · `POST /api/activity/train` · `GET /api/activity/model/status` |
+| Wiki | Capture, browse, compile, search, sync |
 | XP | `GET /api/xp` · `GET /api/xp/ledger` |
-| Notifications | `POST /api/notification/subscribe` · `GET /api/notification/settings` |
-| Review | `POST /api/review/daily` · `GET /api/review/daily` · `GET /api/review/weekly` |
-| Activity | `POST /api/activity/heartbeat` · `POST /api/activity/finalize` · `GET /api/activity/summary` · `GET /api/activity/labels` · `PUT /api/activity/labels` · `POST /api/activity/train` · `GET /api/activity/model/status` · `GET /api/activity/capture/status` |
+| Notifications | Subscribe, settings, VAPID key |
+| Review | Daily review CRUD, weekly report |
+| Blocked Sites | CRUD + toggle |
 
 Full details → [`docs/wiki/API-Reference.md`](docs/wiki/API-Reference.md)
 
@@ -133,121 +231,115 @@ Full details → [`docs/wiki/API-Reference.md`](docs/wiki/API-Reference.md)
 
 ## Browser Extensions
 
-The extensions poll the backend every 60 seconds, update the icon badge with minutes remaining, and block configured domains during focus blocks.
+Extensions poll the backend every 60s, update the icon badge with minutes remaining, and block configured domains during focus blocks.
 
-### Chrome / Edge (Unpacked — no store needed)
+### Chrome / Edge
 
 1. Open `chrome://extensions` → enable **Developer mode**
 2. Click **Load unpacked** → select the `extension/` folder
 3. Pin the Protocol icon in your toolbar
 
-The extension persists across restarts automatically.
+### Firefox
 
-### Firefox (Self-signed — personal use)
-
-Firefox requires all extensions to be signed. Sign as **unlisted** via Mozilla AMO (free, not publicly listed):
-
-1. Install the signing tool: `npm install -g web-ext`
-2. Get AMO API credentials at `https://addons.mozilla.org/developers/addon/api/key/`
-3. Sign the extension:
-   ```bash
-   cd extension-firefox
-   web-ext sign --api-key=YOUR_JWT_ISSUER --api-secret=YOUR_JWT_SECRET --channel=unlisted
-   ```
-4. Install the generated `.xpi` via `about:addons` → gear icon → **Install Add-on From File**
-
-#### Firefox Developer Edition / Nightly (unsigned)
-
-1. `about:config` → set `xpinstall.signatures.required` to `false`
-2. `about:debugging` → **This Firefox** → **Load Temporary Add-on**
-3. Select `extension-firefox/manifest.json`
-
-> This method does NOT work on standard Firefox releases.
-
-Full extension guide → [`docs/wiki/Browser-Extensions.md`](docs/wiki/Browser-Extensions.md)
-
----
-
-## Desktop Widget
-
-An always-on-top Electron window that floats in the corner of your screen, showing the current block, countdown timer, and habit dots.
-
-### Development
+Firefox requires signed extensions. Sign as **unlisted** via Mozilla AMO:
 
 ```bash
-cd widget
-npm install
-npm run dev        # hot-reloading dev mode
+npm install -g web-ext
+cd extension-firefox
+web-ext sign --api-key=YOUR_JWT_ISSUER --api-secret=YOUR_JWT_SECRET --channel=unlisted
 ```
 
-### Packaging
+Install the generated `.xpi` via `about:addons` → gear → **Install Add-on From File**.
 
-The widget embeds the backend API and frontend bundle into a single self-contained installer. Build the installer for your platform:
-
-```bash
-cd widget
-npm install
-
-# Windows — produces release/Protocol Setup <version>.exe
-npm run package:win
-
-# macOS — produces release/<version>.dmg
-npm run package:mac
-
-# Current OS (auto-detected)
-npm run package
-```
-
-The output is written to `widget/release/`:
-
-| File | Description |
-|---|---|
-| `Protocol Setup 1.0.0.exe` | NSIS one-click installer (Windows) |
-| `win-unpacked/Protocol.exe` | Unpacked binary — run without installing |
-| `*.blockmap` | Used by electron-updater for delta updates |
-
-> **Note:** On Windows, `electron-builder` uses `rcedit` to embed version metadata into the `.exe`. Windows Defender may block it, producing a non-fatal warning. The installer still works correctly. To suppress the warning, add `C:\Users\<you>\AppData\Local\electron-builder\Cache\winCodeSign\` to Windows Security exclusions.
-
-### Installing
-
-Run the installer (`Protocol Setup 1.0.0.exe`) or launch `win-unpacked/Protocol.exe` directly. The app installs per-user (no admin required) and appears in the system tray. It starts hidden and auto-shows when the first non-rest block is detected.
-
-Full widget guide → [`docs/wiki/Desktop-Widget.md`](docs/wiki/Desktop-Widget.md)
+> **Dev/Nightly only:** Set `xpinstall.signatures.required` to `false` in `about:config`, then load via `about:debugging`.
 
 ---
 
-## Deploying to a Server
+## Contributing
 
-When deploying the backend to a remote host, update the API base URL in both extensions before signing/loading:
+We welcome contributions of all sizes. Here's how to get involved.
 
-**`extension/background.js` and `extension-firefox/background.js` — line 1:**
-```js
-const API_BASE = 'https://your-api-domain.com/api';
+### Good First Issues
+
+If you're new to the project, look for issues labeled **`good first issue`** or pick from this list:
+
+| Area | Idea | Difficulty |
+|------|------|------------|
+| ML | Add confidence threshold — surface low-confidence predictions for manual review | Easy |
+| ML | Add time-of-day as a training feature | Medium |
+| ML | Track precision/recall/F1 metrics across model retrains | Medium |
+| Frontend | Add dark/light theme toggle | Easy |
+| Frontend | Improve mobile responsiveness of the Activity dashboard | Easy |
+| Backend | Add data export (CSV/JSON) for activity sessions | Easy |
+| Extension | Migrate Chrome/Firefox extensions to TypeScript + React | Medium |
+| Widget | Add macOS/Linux support for desktop activity capture (currently Windows-only via FlaUI) | Hard |
+| Docs | Improve API reference with request/response examples | Easy |
+| Testing | Add unit tests for ML training pipeline | Medium |
+| Testing | Add integration tests for Activity API endpoints | Medium |
+
+### Development Workflow
+
+1. **Fork** the repo and clone your fork
+2. **Create a branch** from `main`: `git checkout -b feature/your-feature`
+3. **Make your changes** — follow the existing code style:
+   - Backend: C# with async/await, `ILogger<T>`, EF Core patterns
+   - Frontend: Functional React components, TypeScript strict mode, Tailwind CSS
+   - Use `API_ENDPOINTS.*` constants — never hard-code URLs
+   - All time logic uses IST (UTC+5:30)
+4. **Test** your changes locally (run both backend + frontend)
+5. **Commit** with a clear message: `feat: add confidence threshold to ML predictions`
+6. **Open a PR** against `main` with a description of what and why
+
+### Architecture Principles
+
+- **Local-first** — Everything runs on the user's machine. No cloud services, no auth, no caching layers.
+- **SQLite is correct** — Single-user app, no need for Postgres/Redis.
+- **Manual > ML > Unclassified** — Human labels always win. ML fills gaps. Nothing stays unlabeled for long.
+- **No over-engineering** — If it works for one user with SQLite and a flat file wiki, that's the right solution.
+
+### Code Style
+
 ```
-
-Update `host_permissions` in both `manifest.json` files to match the new domain. The backend CORS policy must allow `chrome-extension://` and `moz-extension://` origins.
-
----
-
-## Environment Notes
-
-- **Timezone:** All time logic uses IST (UTC+5:30). The backend resolves this via `TimeZoneInfo`.
-- **VAPID keys:** Stored in `appsettings.json`. Do **not** commit production keys to a public repo.
-- **Database:** `protocol.db` is gitignored and created on first run.
+Backend:  async/await everywhere, constructor injection, record DTOs
+Frontend: functional components, named exports, Zustand stores, Axios via API_ENDPOINTS
+Commits:  feat/fix/refactor/docs: concise description
+```
 
 ---
 
 ## Documentation
 
 | Page | Description |
-|---|---|
+|------|-------------|
 | [Architecture](docs/wiki/Architecture.md) | System design, data flow, component overview |
 | [API Reference](docs/wiki/API-Reference.md) | All endpoints with request/response examples |
 | [Browser Extensions](docs/wiki/Browser-Extensions.md) | Install, configure, and deploy both extensions |
 | [Desktop Widget](docs/wiki/Desktop-Widget.md) | Electron widget setup and usage |
+| [Activity Intelligence](docs/wiki/Activity-Intelligence.md) | Website activity tracking, ML classification |
 | [Gamification](docs/wiki/Gamification.md) | XP system and rank progression |
-| [Activity Intelligence](docs/wiki/Activity-Intelligence.md) | Website activity tracking, ML classification, domain-grouped view |
-| [Roadmap](docs/wiki/Roadmap.md) | Build tickets and feature status |
+| [Roadmap](docs/wiki/Roadmap.md) | Build tickets, phases, and feature status |
+
+---
+
+## Environment Notes
+
+- **Timezone:** All time logic uses IST (UTC+5:30) via `TimeZoneInfo`
+- **VAPID keys:** Stored in `appsettings.json` — do **not** commit production keys
+- **Database:** `protocol.db` is gitignored and created on first run
+- **Desktop capture:** Controlled by `PROTOCOL_DESKTOP_ACTIVITY=1` env var (Windows only)
+- **Data directory:** Override with `PROTOCOL_DATA_DIR` env var
+
+---
+
+## Releases
+
+Download the latest installer from [GitHub Releases](https://github.com/vxlabs/personal_tracker/releases).
+
+| Asset | Description |
+|-------|-------------|
+| `Protocol Setup X.Y.Z.exe` | Windows NSIS one-click installer (includes embedded API + frontend) |
+
+The installer is per-user (no admin required). The app appears in the system tray and auto-shows when the first non-rest schedule block is detected.
 
 ---
 
