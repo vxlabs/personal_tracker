@@ -67,6 +67,8 @@ builder.Services.AddScoped<WikiAgentService>();
 builder.Services.AddScoped<WikiCompileService>();
 builder.Services.AddScoped<WebsiteProductivityMlService>();
 builder.Services.AddScoped<ActivityService>();
+builder.Services.AddScoped<AppCategoryMlService>();
+builder.Services.AddScoped<AppActivityService>();
 builder.Services.AddSingleton<DesktopActivityCaptureState>();
 builder.Services.AddHostedService<DesktopActivityHostedService>();
 
@@ -114,6 +116,7 @@ using (var scope = app.Services.CreateScope())
 
     db.Database.Migrate();
     WebsiteActivitySchemaRepair.EnsureCreated(db);
+    AppActivitySchemaRepair.EnsureCreated(db);
     DatabaseSeeder.Seed(db);
 }
 

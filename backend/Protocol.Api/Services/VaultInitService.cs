@@ -65,6 +65,7 @@ public class VaultInitService(IConfiguration configuration, ILogger<VaultInitSer
     {
         var schemaPath = Path.Combine(VaultRoot, "WIKI-SCHEMA.md");
         if (File.Exists(schemaPath)) return;
+        if (!Directory.Exists(VaultRoot)) return;
 
         const string content = """
             # Protocol Knowledge Wiki — Schema
@@ -164,14 +165,22 @@ public class VaultInitService(IConfiguration configuration, ILogger<VaultInitSer
             - Entities include people, companies, tools/products, and organizations
             """;
 
-        File.WriteAllText(schemaPath, content);
-        logger.LogInformation("Created WIKI-SCHEMA.md");
+        try
+        {
+            File.WriteAllText(schemaPath, content);
+            logger.LogInformation("Created WIKI-SCHEMA.md");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not create WIKI-SCHEMA.md — skipping");
+        }
     }
 
     private void GenerateIndexFile()
     {
         var indexPath = Path.Combine(VaultRoot, "index.md");
         if (File.Exists(indexPath)) return;
+        if (!Directory.Exists(VaultRoot)) return;
 
         var today = DateTime.Today.ToString("yyyy-MM-dd");
         var content = $"""
@@ -200,14 +209,22 @@ public class VaultInitService(IConfiguration configuration, ILogger<VaultInitSer
             <!-- Filed answers and analyses -->
             """;
 
-        File.WriteAllText(indexPath, content);
-        logger.LogInformation("Created index.md");
+        try
+        {
+            File.WriteAllText(indexPath, content);
+            logger.LogInformation("Created index.md");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not create index.md — skipping");
+        }
     }
 
     private void GenerateLogFile()
     {
         var logPath = Path.Combine(VaultRoot, "log.md");
         if (File.Exists(logPath)) return;
+        if (!Directory.Exists(VaultRoot)) return;
 
         var today = DateTime.Today.ToString("yyyy-MM-dd");
         var content = $"""
@@ -221,7 +238,14 @@ public class VaultInitService(IConfiguration configuration, ILogger<VaultInitSer
             ## [{today}] init | Vault initialized by Protocol app
             """;
 
-        File.WriteAllText(logPath, content);
-        logger.LogInformation("Created log.md");
+        try
+        {
+            File.WriteAllText(logPath, content);
+            logger.LogInformation("Created log.md");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not create log.md — skipping");
+        }
     }
 }

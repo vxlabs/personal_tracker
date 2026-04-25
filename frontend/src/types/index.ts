@@ -227,3 +227,62 @@ export interface ActivityTrainResult {
   startedAtUtc: string
   completedAtUtc: string | null
 }
+
+// ─── App Activity Types ────────────────────────────────────────────────────
+
+export type AppCategory =
+  | 'Coding'
+  | 'Communication'
+  | 'Browsing'
+  | 'Entertainment'
+  | 'Productivity'
+  | 'System'
+  | 'Uncategorized'
+
+export interface AppCategoryBucket {
+  category: string
+  totalSeconds: number
+  percentage: number
+}
+
+export interface AppGroupDto {
+  processName: string
+  categoryLabel: string
+  labelSource: string
+  totalSeconds: number
+  sessionCount: number
+}
+
+export interface AppUsageSummary {
+  period: string
+  fromUtc: string
+  toUtc: string
+  totalTrackedSeconds: number
+  categories: AppCategoryBucket[]
+  apps: AppGroupDto[]
+}
+
+export interface AppLabelDto {
+  id: number
+  processName: string
+  label: string
+  updatedAtUtc: string
+}
+
+export interface AppMlStatus {
+  hasModel: boolean
+  modelPath: string | null
+  lastTrainedAtUtc: string | null
+  lastTrainingSucceeded: boolean
+  lastTrainingMessage: string | null
+  labelCounts: Record<string, number>
+  minExamplesRequired: number
+}
+
+export interface AppTrainResult {
+  succeeded: boolean
+  message: string
+  trainingExampleCount: number
+  startedAtUtc: string
+  completedAtUtc: string | null
+}

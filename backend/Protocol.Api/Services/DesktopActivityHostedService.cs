@@ -26,6 +26,7 @@ public class DesktopActivityHostedService(
 
     private readonly UiAutomationUrlReader urlReader = new();
     private CaptureSession? currentSession;
+    private string? currentAppProcessName;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -63,6 +64,7 @@ public class DesktopActivityHostedService(
         finally
         {
             await FinalizeCurrentSessionAsync(DateTime.UtcNow, stoppingToken);
+            await FinalizeCurrentAppSessionAsync(DateTime.UtcNow, stoppingToken);
             captureState.SetRunning(false);
         }
     }
@@ -77,6 +79,7 @@ public class DesktopActivityHostedService(
             {
                 captureState.Observe(null, null, null, null, "System idle");
                 await FinalizeCurrentSessionAsync(observedAtUtc, cancellationToken);
+                await FinalizeCurrentAppSessionAsync(observedAtUtc, cancellationToken);
                 return;
             }
 
@@ -85,11 +88,17 @@ public class DesktopActivityHostedService(
             {
                 captureState.Observe(null, null, null, null, "No foreground window");
                 await FinalizeCurrentSessionAsync(observedAtUtc, cancellationToken);
+                await FinalizeCurrentAppSessionAsync(observedAtUtc, cancellationToken);
                 return;
             }
 
             var processName = GetForegroundProcessName(foreground);
             var title = GetWindowTitle(foreground);
+
+            // Always send app-level heartbeat for the foreground process
+            if (processName is not null)
+                await SendAppHeartbeatAsync(processName, title, observedAtUtc, cancellationToken);
+
             if (processName is null || !SupportedBrowsers.TryGetValue(processName, out var browserName))
             {
                 captureState.Observe(processName, title, null, null, null);
@@ -135,6 +144,52 @@ public class DesktopActivityHostedService(
             logger.LogWarning(ex, "Desktop activity capture poll failed.");
             captureState.Observe(null, null, null, null, ex.Message);
             await FinalizeCurrentSessionAsync(observedAtUtc, cancellationToken);
+        }
+    }
+
+    private async Task SendAppHeartbeatAsync(
+        string processName,
+        string? windowTitle,
+        DateTime observedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Finalize app session when the foreground process changes
+            if (currentAppProcessName is not null &&
+                !string.Equals(currentAppProcessName, processName, StringComparison.OrdinalIgnoreCase))
+            {
+                await FinalizeCurrentAppSessionAsync(observedAtUtc, cancellationToken);
+            }
+
+            currentAppProcessName = processName;
+
+            using var scope = scopeFactory.CreateScope();
+            var appActivityService = scope.ServiceProvider.GetRequiredService<AppActivityService>();
+            await appActivityService.HeartbeatAsync(processName, windowTitle, observedAtUtc, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Failed to send app activity heartbeat for {ProcessName}.", processName);
+        }
+    }
+
+    private async Task FinalizeCurrentAppSessionAsync(DateTime endedAtUtc, CancellationToken cancellationToken)
+    {
+        if (currentAppProcessName is null) return;
+
+        var processName = currentAppProcessName;
+        currentAppProcessName = null;
+
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var appActivityService = scope.ServiceProvider.GetRequiredService<AppActivityService>();
+            await appActivityService.FinalizeAsync(processName, endedAtUtc, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Failed to finalize app activity session for {ProcessName}.", processName);
         }
     }
 
@@ -284,19 +339,39 @@ public class DesktopActivityHostedService(
                 }
 
                 var cf = automation.ConditionFactory;
+
+                // Scan both Edit and ComboBox - Firefox's omnibox may be exposed as either
                 var editElements = root.FindAllDescendants(cf.ByControlType(ControlType.Edit));
+                var comboElements = root.FindAllDescendants(cf.ByControlType(ControlType.ComboBox));
+                var candidates = editElements.Concat(comboElements).ToArray();
 
-                foreach (var element in editElements)
+                // Pass 1: name/id-based detection (reliable for Chrome and Edge)
+                foreach (var element in candidates)
                 {
-                    if (!LooksLikeAddressBar(element))
-                        continue;
-
+                    if (!LooksLikeAddressBarByName(element)) continue;
                     var value = GetValue(element);
                     if (TryNormalizeUrl(value, out var normalized))
                         return normalized;
                 }
 
-                error = $"Address bar not found ({editElements.Length} edit controls scanned)";
+                // Pass 2: value-based fallback for Firefox.
+                // Firefox's address bar may expose no recognisable AutomationId/Name,
+                // but its current value IS the URL being displayed.
+                foreach (var element in candidates)
+                {
+                    var value = GetValue(element);
+                    if (string.IsNullOrWhiteSpace(value)) continue;
+                    var trimmed = value.Trim();
+                    if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                        || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                        || trimmed.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (TryNormalizeUrl(trimmed, out var normalized))
+                            return normalized;
+                    }
+                }
+
+                error = $"Address bar not found ({candidates.Length} controls scanned)";
                 return null;
             }
             catch (Exception ex)
@@ -306,7 +381,7 @@ public class DesktopActivityHostedService(
             }
         }
 
-        private static bool LooksLikeAddressBar(AutomationElement element)
+        private static bool LooksLikeAddressBarByName(AutomationElement element)
         {
             var automationId = element.Properties.AutomationId.ValueOrDefault ?? "";
             var name = element.Properties.Name.ValueOrDefault ?? "";

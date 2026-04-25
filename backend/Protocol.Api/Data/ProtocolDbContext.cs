@@ -21,6 +21,9 @@ public class ProtocolDbContext(DbContextOptions<ProtocolDbContext> options) : Db
     public DbSet<WebsiteVisitSession> WebsiteVisitSessions => Set<WebsiteVisitSession>();
     public DbSet<WebsiteProductivityLabel> WebsiteProductivityLabels => Set<WebsiteProductivityLabel>();
     public DbSet<WebsiteMlTrainingRun> WebsiteMlTrainingRuns => Set<WebsiteMlTrainingRun>();
+    public DbSet<AppUsageSession> AppUsageSessions => Set<AppUsageSession>();
+    public DbSet<AppCategoryLabel> AppCategoryLabels => Set<AppCategoryLabel>();
+    public DbSet<AppMlTrainingRun> AppMlTrainingRuns => Set<AppMlTrainingRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -123,6 +126,28 @@ public class ProtocolDbContext(DbContextOptions<ProtocolDbContext> options) : Db
             .HasIndex(l => l.Domain);
 
         modelBuilder.Entity<WebsiteMlTrainingRun>()
+            .HasIndex(r => r.StartedAtUtc);
+
+        // AppUsageSession indexes
+        modelBuilder.Entity<AppUsageSession>()
+            .HasIndex(a => a.SessionKey)
+            .IsUnique();
+
+        modelBuilder.Entity<AppUsageSession>()
+            .HasIndex(a => a.ProcessName);
+
+        modelBuilder.Entity<AppUsageSession>()
+            .HasIndex(a => a.StartedAtUtc);
+
+        modelBuilder.Entity<AppUsageSession>()
+            .HasIndex(a => a.CategoryLabel);
+
+        // AppCategoryLabel: unique per process name
+        modelBuilder.Entity<AppCategoryLabel>()
+            .HasIndex(a => a.ProcessName)
+            .IsUnique();
+
+        modelBuilder.Entity<AppMlTrainingRun>()
             .HasIndex(r => r.StartedAtUtc);
     }
 }

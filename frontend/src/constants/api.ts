@@ -51,4 +51,8 @@ export const API_ENDPOINTS = {
   ACTIVITY_LABELS: '/activity/labels',
   ACTIVITY_TRAIN: '/activity/train',
   ACTIVITY_MODEL_STATUS: '/activity/model/status',
+  APP_ACTIVITY_SUMMARY: '/app-activity/summary',
+  APP_ACTIVITY_LABELS: '/app-activity/labels',
+  APP_ACTIVITY_TRAIN: '/app-activity/train',
+  APP_ACTIVITY_MODEL_STATUS: '/app-activity/model/status',
 } as const
