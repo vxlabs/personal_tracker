@@ -153,6 +153,26 @@ public class XpService(ProtocolDbContext db)
         return await BuildDeltaAsync(rankBefore, gained);
     }
 
+    /// <summary>+15 XP for capturing a new wiki source.</summary>
+    public async Task<XpDeltaDto> OnWikiCaptureAsync(int sourceId)
+    {
+        var totalBefore = await GetTotalXpAsync();
+        var rankBefore = RankTitleForXp(totalBefore);
+
+        var gained = await TryAwardAsync($"wiki:capture:{sourceId}", 15, "Wiki source captured") ?? 0;
+        return await BuildDeltaAsync(rankBefore, gained);
+    }
+
+    /// <summary>+30 XP for compiling a wiki source into a page.</summary>
+    public async Task<XpDeltaDto> OnWikiCompileAsync(int sourceId)
+    {
+        var totalBefore = await GetTotalXpAsync();
+        var rankBefore = RankTitleForXp(totalBefore);
+
+        var gained = await TryAwardAsync($"wiki:compile:{sourceId}", 30, "Wiki page compiled") ?? 0;
+        return await BuildDeltaAsync(rankBefore, gained);
+    }
+
     /// <summary>Award XP when a daily review has at least one non-empty entry.</summary>
     public async Task<XpDeltaDto> OnDailyReviewSavedAsync(DateOnly date, string e1, string e2, string e3)
     {

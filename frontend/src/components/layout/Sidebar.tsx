@@ -8,6 +8,8 @@ import {
   BookOpen,
   Settings,
   Award,
+  BrainCircuit,
+  BarChart3,
 } from 'lucide-react'
 import { useXp } from '@/context/XpContext'
 import { format } from 'date-fns'
@@ -18,6 +20,8 @@ const NAV_ITEMS = [
   { to: '/focus', label: 'Focus', icon: Crosshair },
   { to: '/habits', label: 'Habits', icon: Target },
   { to: '/review', label: 'Review', icon: BookOpen },
+  { to: '/activity', label: 'Activity', icon: BarChart3 },
+  { to: '/wiki', label: 'Wiki', icon: BrainCircuit },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
 

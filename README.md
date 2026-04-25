@@ -21,6 +21,7 @@ Protocol tracks your daily schedule, habits, focus sessions, and XP — and enfo
 - **Weekly Report** — Auto-generated stats: habit compliance, focus hours, streaks, overall score
 - **XP & Ranks** — Gamified XP system with rank progression
 - **Desktop Widget** — Always-on-top Electron overlay showing current block + timer
+- **Activity Intelligence** — Tracks desktop browser activity, classifies website productivity using an on-device ML.NET model trained on domain + URL + page title, and groups activity by domain in a collapsible tree view
 - **PWA** — Installable on mobile with offline caching and background sync
 - **Push Notifications** — Block transition alerts, habit reminders, sleep warnings
 
@@ -30,7 +31,7 @@ Protocol tracks your daily schedule, habits, focus sessions, and XP — and enfo
 
 | Layer | Technology |
 |---|---|
-| Backend | .NET 8 · ASP.NET Core · EF Core 8 · SQLite · WebPush (VAPID) |
+| Backend | .NET 8 · ASP.NET Core · EF Core 8 · SQLite · ML.NET · WebPush (VAPID) |
 | Frontend | React 18 · TypeScript · Vite · Tailwind CSS v4 · Zustand · Axios |
 | Extension (Chrome/Edge) | Manifest V3 · Vanilla JS |
 | Extension (Firefox) | Manifest V2 · Vanilla JS |
@@ -124,6 +125,7 @@ Runs backend on `:5000` and frontend on `:3000`. SQLite data persists in a local
 | XP | `GET /api/xp` · `GET /api/xp/ledger` |
 | Notifications | `POST /api/notification/subscribe` · `GET /api/notification/settings` |
 | Review | `POST /api/review/daily` · `GET /api/review/daily` · `GET /api/review/weekly` |
+| Activity | `POST /api/activity/heartbeat` · `POST /api/activity/finalize` · `GET /api/activity/summary` · `GET /api/activity/labels` · `PUT /api/activity/labels` · `POST /api/activity/train` · `GET /api/activity/model/status` · `GET /api/activity/capture/status` |
 
 Full details → [`docs/wiki/API-Reference.md`](docs/wiki/API-Reference.md)
 
@@ -244,6 +246,7 @@ Update `host_permissions` in both `manifest.json` files to match the new domain.
 | [Browser Extensions](docs/wiki/Browser-Extensions.md) | Install, configure, and deploy both extensions |
 | [Desktop Widget](docs/wiki/Desktop-Widget.md) | Electron widget setup and usage |
 | [Gamification](docs/wiki/Gamification.md) | XP system and rank progression |
+| [Activity Intelligence](docs/wiki/Activity-Intelligence.md) | Website activity tracking, ML classification, domain-grouped view |
 | [Roadmap](docs/wiki/Roadmap.md) | Build tickets and feature status |
 
 ---

@@ -16,6 +16,9 @@ widget/dist/
 widget/release/
 widget/resources/api/
 
+# Runtime vault (user data; never tracked)
+Protocol-Vault/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -30,3 +33,4 @@ Thumbs.db
 docs/
 .claude/
 .codex-desktop-smoke/
+.codex-api-*.log

@@ -1,13 +1,17 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'path';
 import { isNativeMessagingHostMode, runNativeMessagingHost, registerNativeMessagingHost } from './native-messaging';
+import { installLoggingGuards, safeLog } from './safe-log';
+
+installLoggingGuards();
 
 // Must be the very first check after imports.  When Chrome/Firefox spawns
 // Protocol.exe as a native messaging host it passes the extension origin
 // (e.g. "chrome-extension://abc.../") as argv[1].  We handle the NMH
 // protocol here and exit before any GUI or API initialization happens.
-if (isNativeMessagingHostMode()) {
-  runNativeMessagingHost(); // calls process.exit() — nothing below runs
+const __nmhMode = isNativeMessagingHostMode();
+if (__nmhMode) {
+  runNativeMessagingHost(); // async — calls process.exit() once stdin is read
 }
 import { setupTray, updateTrayPreferences } from './tray';
 import { setupShortcuts, unregisterShortcuts } from './shortcuts';
@@ -19,7 +23,7 @@ import { setAutoLaunchEnabled } from './auto-launch';
 
 const WIDGET_WIDTH = 240;
 const COMPACT_HEIGHT = 60;
-const EXPANDED_HEIGHT = 210;
+const EXPANDED_HEIGHT = 300;
 const MAIN_WINDOW_WIDTH = 1440;
 const MAIN_WINDOW_HEIGHT = 920;
 const RESIZE_DURATION_MS = 180;
@@ -264,6 +268,11 @@ function createWidget(): BrowserWindow {
 
 app.whenReady()
   .then(async () => {
+    // When spawned as an NMH handler, runNativeMessagingHost() is waiting for
+    // stdin and will call process.exit().  Don't initialise the full app — no
+    // windows, no API spawn, no tray — just let the handler finish and exit.
+    if (__nmhMode) return;
+
     windowManager = new WindowManager();
     runtimeConfig = {
       isDesktop: true,
@@ -351,7 +360,7 @@ app.whenReady()
     });
   })
   .catch((error) => {
-    console.error('Failed to start Protocol desktop shell:', error);
+    safeLog('error', 'Failed to start Protocol desktop shell:', error);
     app.quit();
   });
 

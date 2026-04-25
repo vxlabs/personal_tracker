@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('protocolWidget', {
   toggleHabit: (habitId: string) => {
     ipcRenderer.send(IPC.TOGGLE_HABIT, habitId);
   },
+  wikiCapture: (url: string) => {
+    ipcRenderer.send(IPC.WIKI_CAPTURE, url);
+  },
+  wikiCompilePending: () => {
+    ipcRenderer.send(IPC.WIKI_COMPILE_PENDING);
+  },
   getState: () => ipcRenderer.invoke(IPC.GET_STATE) as Promise<WidgetState>,
 
   // Main → Renderer

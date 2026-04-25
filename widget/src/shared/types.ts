@@ -50,6 +50,9 @@ export interface WidgetState {
   apiOnline: boolean;
   mode: WidgetMode;
   blockedAttemptFlashUntil: number | null;
+  wikiPendingCount: number;
+  wikiAgent: { name: string; provider: string } | null;
+  wikiCompiling: boolean;
 }
 
 export interface WindowPosition {
@@ -74,4 +77,6 @@ export const IPC = {
   SHOW_WIDGET: 'show-widget',
   HIDE_WIDGET: 'hide-widget',
   TOGGLE_WIDGET: 'toggle-widget',
+  WIKI_CAPTURE: 'wiki-capture',
+  WIKI_COMPILE_PENDING: 'wiki-compile-pending',
 } as const;

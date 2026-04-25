@@ -158,3 +158,72 @@ export interface XpSummary {
   xpToNextRank: number | null
   weeklyBars: XpWeekBar[]
 }
+
+export type ProductivityLabel = 'Productive' | 'Neutral' | 'Distracting' | 'Unclassified'
+
+export interface ActivityBucket {
+  key: string
+  label: string
+  activeSeconds: number
+  domain: string | null
+  url: string | null
+  productivityLabel: ProductivityLabel
+  labelSource: string
+  predictionConfidence: number | null
+  title?: string | null
+}
+
+export interface DomainGroup {
+  domain: string
+  totalSeconds: number
+  productivityLabel: ProductivityLabel
+  labelSource: string
+  predictionConfidence: number | null
+  urls: ActivityBucket[]
+}
+
+export interface ActivitySession {
+  id: number
+  sessionKey: string
+  url: string
+  domain: string
+  title: string | null
+  startedAtUtc: string
+  lastSeenAtUtc: string
+  endedAtUtc: string | null
+  activeSeconds: number
+  productivityLabel: ProductivityLabel
+  labelSource: string
+  predictionConfidence: number | null
+}
+
+export interface ActivityMlStatus {
+  hasModel: boolean
+  modelPath: string | null
+  lastTrainedAtUtc: string | null
+  lastTrainingSucceeded: boolean
+  lastTrainingMessage: string | null
+  labelCounts: Record<string, number>
+}
+
+export interface ActivitySummary {
+  period: string
+  startUtc: string
+  endUtc: string
+  totalSeconds: number
+  byLabel: ActivityBucket[]
+  domainGroups: DomainGroup[]
+  unclassified: ActivitySession[]
+  model: ActivityMlStatus
+}
+
+export interface ActivityTrainResult {
+  succeeded: boolean
+  message: string
+  productiveCount: number
+  neutralCount: number
+  distractingCount: number
+  trainingExampleCount: number
+  startedAtUtc: string
+  completedAtUtc: string | null
+}

@@ -33,6 +33,11 @@ export function CompactView({ state, onExpand, blockColor }: Props) {
     return (
       <div className="no-block">
         No active block{!state.apiOnline && <span className="offline-badge">⚠ offline</span>}
+        {state.wikiPendingCount > 0 && (
+          <span className="wiki-badge" title={`${state.wikiPendingCount} wiki source(s) pending`}>
+            📚 {state.wikiPendingCount}
+          </span>
+        )}
       </div>
     );
   }
@@ -48,6 +53,14 @@ export function CompactView({ state, onExpand, blockColor }: Props) {
           {!state.apiOnline && <span className="offline-badge">⚠</span>}
         </span>
         <span className="countdown no-drag">{countdownLabel}</span>
+        {state.wikiPendingCount > 0 && (
+          <span
+            className="wiki-badge no-drag"
+            title={`${state.wikiPendingCount} wiki source(s) pending compilation`}
+          >
+            📚{state.wikiPendingCount}
+          </span>
+        )}
         <button
           className="expand-btn no-drag"
           onClick={onExpand}

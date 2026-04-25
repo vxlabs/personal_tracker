@@ -24,6 +24,9 @@ const EMPTY_STATE: WidgetState = {
   apiOnline: false,
   mode: 'compact',
   blockedAttemptFlashUntil: null,
+  wikiPendingCount: 0,
+  wikiAgent: null,
+  wikiCompiling: false,
 };
 
 export function Widget() {

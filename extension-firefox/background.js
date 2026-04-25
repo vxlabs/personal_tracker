@@ -21,6 +21,10 @@ let cachedBlocks = [];
 let cachedDay    = -1;
 let apiBase      = DEV_API_BASE;
 let pollFailures = 0;
+let browserFocused = true;
+let idleState = 'active';
+let activitySession = null;
+let activityTimer = null;
 
 // ── Port discovery via native messaging ───────────────────────────────────────
 
@@ -106,12 +110,16 @@ function computeCurrentState() {
 browser.runtime.onInstalled.addListener(() => {
   cachedDay = -1;
   browser.alarms.create('poll', { periodInMinutes: POLL_INTERVAL_MINUTES });
+  browser.idle.setDetectionInterval(120);
   initAndPoll();
+  updateActivityFromActiveTab();
 });
 
 browser.runtime.onStartup.addListener(() => {
   cachedDay = -1;
+  browser.idle.setDetectionInterval(120);
   initAndPoll();
+  updateActivityFromActiveTab();
 });
 
 browser.alarms.onAlarm.addListener((alarm) => {
@@ -258,6 +266,7 @@ function setDefaultIcon() {
 
 browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'BLOCKED_ATTEMPT') logBlockedAttempt(message);
+  if (message.type === 'ACTIVITY_URL_CHANGED') updateActivityFromActiveTab();
 });
 
 async function logBlockedAttempt({ site, blockLabel, blockType }) {
@@ -273,4 +282,149 @@ async function logBlockedAttempt({ site, blockLabel, blockType }) {
       }),
     });
   } catch { /* silently ignore if API is offline */ }
+}
+
+// ── Website activity tracking ────────────────────────────────────────────────
+
+browser.tabs.onActivated.addListener(() => updateActivityFromActiveTab());
+
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || changeInfo.status === 'complete') {
+    browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      if (tabs[0]?.id === tabId) updateActivityForTab(tab);
+    }).catch(() => {});
+  }
+});
+
+browser.windows.onFocusChanged.addListener((windowId) => {
+  browserFocused = windowId !== browser.windows.WINDOW_ID_NONE;
+  if (browserFocused) updateActivityFromActiveTab();
+  else finalizeActivitySession();
+});
+
+browser.idle.onStateChanged.addListener((state) => {
+  idleState = state;
+  if (state === 'active') updateActivityFromActiveTab();
+  else finalizeActivitySession();
+});
+
+async function updateActivityFromActiveTab() {
+  if (!browserFocused || idleState !== 'active') {
+    await finalizeActivitySession();
+    return;
+  }
+
+  try {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    await updateActivityForTab(tabs[0]);
+  } catch {
+    await finalizeActivitySession();
+  }
+}
+
+async function updateActivityForTab(tab) {
+  if (!browserFocused || idleState !== 'active' || !tab?.url) {
+    await finalizeActivitySession();
+    return;
+  }
+
+  const normalized = normalizeActivityUrl(tab.url);
+  if (!normalized) {
+    await finalizeActivitySession();
+    return;
+  }
+
+  if (!activitySession || activitySession.url !== normalized.url) {
+    await finalizeActivitySession();
+    activitySession = {
+      sessionKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      url: normalized.url,
+      domain: normalized.domain,
+      title: tab.title ?? null,
+      startedAtUtc: new Date().toISOString(),
+      lastSentAt: Date.now(),
+    };
+    await sendActivityHeartbeat(1);
+  } else {
+    activitySession.title = tab.title ?? activitySession.title;
+  }
+
+  ensureActivityTimer();
+}
+
+function ensureActivityTimer() {
+  if (activityTimer) return;
+  activityTimer = setInterval(async () => {
+    if (!activitySession) {
+      clearInterval(activityTimer);
+      activityTimer = null;
+      return;
+    }
+    if (!browserFocused || idleState !== 'active') {
+      await finalizeActivitySession();
+      return;
+    }
+    await updateActivityFromActiveTab();
+    await sendActivityHeartbeat();
+  }, 30_000);
+}
+
+async function sendActivityHeartbeat(forcedSeconds) {
+  if (!activitySession) return;
+
+  const now = Date.now();
+  const activeSeconds = forcedSeconds ?? Math.max(1, Math.round((now - activitySession.lastSentAt) / 1000));
+  activitySession.lastSentAt = now;
+
+  try {
+    await fetch(`${apiBase}/activity/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionKey: activitySession.sessionKey,
+        url: activitySession.url,
+        domain: activitySession.domain,
+        title: activitySession.title,
+        startedAtUtc: activitySession.startedAtUtc,
+        observedAtUtc: new Date().toISOString(),
+        activeSeconds,
+        sourceBrowser: 'firefox',
+      }),
+    });
+  } catch {
+    // Local API may be offline; keep tracking and retry on the next heartbeat.
+  }
+}
+
+async function finalizeActivitySession() {
+  if (!activitySession) return;
+  const current = activitySession;
+  const elapsed = Math.round((Date.now() - current.lastSentAt) / 1000);
+  if (elapsed > 0) await sendActivityHeartbeat(Math.min(elapsed, 120));
+  activitySession = null;
+
+  try {
+    await fetch(`${apiBase}/activity/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionKey: current.sessionKey,
+        endedAtUtc: new Date().toISOString(),
+      }),
+    });
+  } catch { /* silently ignore if API is offline */ }
+}
+
+function normalizeActivityUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const domain = url.hostname.replace(/^www\./, '').toLowerCase();
+    return {
+      url: `${url.origin}${url.pathname || '/'}`,
+      domain,
+    };
+  } catch {
+    return null;
+  }
 }

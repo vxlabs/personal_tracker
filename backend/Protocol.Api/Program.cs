@@ -59,6 +59,23 @@ builder.Services.AddScoped<WeeklyReportService>();
 builder.Services.AddScoped<XpService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddHostedService<NotificationBackgroundService>();
+builder.Services.AddSingleton<VaultInitService>();
+builder.Services.AddSingleton<VaultFileWatcher>();
+builder.Services.AddScoped<ContentExtractorService>();
+builder.Services.AddScoped<WikiSearchService>();
+builder.Services.AddScoped<WikiAgentService>();
+builder.Services.AddScoped<WikiCompileService>();
+builder.Services.AddScoped<WebsiteProductivityMlService>();
+builder.Services.AddScoped<ActivityService>();
+builder.Services.AddSingleton<DesktopActivityCaptureState>();
+builder.Services.AddHostedService<DesktopActivityHostedService>();
+
+builder.Services.AddHttpClient("extractor", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (compatible; ProtocolBot/1.0)");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // CORS — allow frontend dev server and Chrome extension
 builder.Services.AddCors(options =>
@@ -96,8 +113,17 @@ using (var scope = app.Services.CreateScope())
         Directory.CreateDirectory(dbPath);
 
     db.Database.Migrate();
+    WebsiteActivitySchemaRepair.EnsureCreated(db);
     DatabaseSeeder.Seed(db);
 }
+
+// Initialize vault directory structure and starter files
+var vaultInit = app.Services.GetRequiredService<VaultInitService>();
+vaultInit.Initialize();
+
+// Start the file watcher for Claude Code sync
+var fileWatcher = app.Services.GetRequiredService<VaultFileWatcher>();
+fileWatcher.Start();
 
 if (app.Environment.IsDevelopment())
 {

@@ -15,6 +15,12 @@ public class ProtocolDbContext(DbContextOptions<ProtocolDbContext> options) : Db
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<BlockedAttempt> BlockedAttempts => Set<BlockedAttempt>();
     public DbSet<XpLedgerEntry> XpLedgerEntries => Set<XpLedgerEntry>();
+    public DbSet<VaultSource> VaultSources => Set<VaultSource>();
+    public DbSet<WikiPageIndex> WikiPages => Set<WikiPageIndex>();
+    public DbSet<WikiAgentProfile> WikiAgentProfiles => Set<WikiAgentProfile>();
+    public DbSet<WebsiteVisitSession> WebsiteVisitSessions => Set<WebsiteVisitSession>();
+    public DbSet<WebsiteProductivityLabel> WebsiteProductivityLabels => Set<WebsiteProductivityLabel>();
+    public DbSet<WebsiteMlTrainingRun> WebsiteMlTrainingRuns => Set<WebsiteMlTrainingRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,5 +76,53 @@ public class ProtocolDbContext(DbContextOptions<ProtocolDbContext> options) : Db
         modelBuilder.Entity<XpLedgerEntry>()
             .HasIndex(x => x.SourceKey)
             .IsUnique();
+
+        // VaultSource indexes
+        modelBuilder.Entity<VaultSource>()
+            .HasIndex(v => v.Status);
+
+        modelBuilder.Entity<VaultSource>()
+            .HasIndex(v => v.Slug)
+            .IsUnique();
+
+        // WikiPageIndex indexes
+        modelBuilder.Entity<WikiPageIndex>()
+            .HasIndex(w => w.FilePath)
+            .IsUnique();
+
+        modelBuilder.Entity<WikiPageIndex>()
+            .HasIndex(w => w.PageType);
+
+        modelBuilder.Entity<WikiPageIndex>()
+            .HasIndex(w => w.UpdatedAt);
+
+        modelBuilder.Entity<WikiAgentProfile>()
+            .HasIndex(a => a.Provider);
+
+        modelBuilder.Entity<WikiAgentProfile>()
+            .HasIndex(a => a.IsDefault);
+
+        modelBuilder.Entity<WebsiteVisitSession>()
+            .HasIndex(v => v.SessionKey)
+            .IsUnique();
+
+        modelBuilder.Entity<WebsiteVisitSession>()
+            .HasIndex(v => v.Domain);
+
+        modelBuilder.Entity<WebsiteVisitSession>()
+            .HasIndex(v => v.StartedAtUtc);
+
+        modelBuilder.Entity<WebsiteVisitSession>()
+            .HasIndex(v => v.ProductivityLabel);
+
+        modelBuilder.Entity<WebsiteProductivityLabel>()
+            .HasIndex(l => new { l.Scope, l.Target })
+            .IsUnique();
+
+        modelBuilder.Entity<WebsiteProductivityLabel>()
+            .HasIndex(l => l.Domain);
+
+        modelBuilder.Entity<WebsiteMlTrainingRun>()
+            .HasIndex(r => r.StartedAtUtc);
     }
 }

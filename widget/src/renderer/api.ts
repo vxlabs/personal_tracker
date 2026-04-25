@@ -5,6 +5,8 @@ interface ProtocolWidgetBridge {
   setIgnoreMouse: (ignore: boolean) => void;
   setMode: (mode: 'compact' | 'expanded') => void;
   toggleHabit: (habitId: string) => void;
+  wikiCapture: (url: string) => void;
+  wikiCompilePending: () => void;
   getState: () => Promise<WidgetState>;
   onStateUpdate: (callback: (state: WidgetState) => void) => () => void;
 }

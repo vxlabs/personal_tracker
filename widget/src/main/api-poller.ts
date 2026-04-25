@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, powerMonitor } from 'electron';
 import { IPC, WidgetState, HabitStatus, TimeBlock, WidgetMode } from '../shared/types';
 import { updateTrayStatus } from './tray';
+import { safeLog } from './safe-log';
 
 let apiBaseUrl = 'http://localhost:5000/api';
 const POLL_INTERVAL_MS = 30_000;
@@ -127,18 +128,27 @@ let lastState: WidgetState = {
   apiOnline: false,
   mode: 'compact',
   blockedAttemptFlashUntil: null,
+  wikiPendingCount: 0,
+  wikiAgent: null,
+  wikiCompiling: false,
 };
 let activeWidget: BrowserWindow | null = null;
 let resumeHandler: (() => void) | null = null;
 let habitToggleHandler:
   | ((_event: Electron.IpcMainEvent, habitId: string | number) => Promise<void>)
   | null = null;
+let wikiCaptureHandler:
+  | ((_event: Electron.IpcMainEvent, url: string) => Promise<void>)
+  | null = null;
+let wikiCompilePendingHandler:
+  | ((_event: Electron.IpcMainEvent) => Promise<void>)
+  | null = null;
 let lastBlockedAttemptId: number | null = null;
 // One-shot callback fired when the first non-rest block is detected (used for startup auto-show)
 let firstNonRestCallback: (() => void) | null = null;
 
 async function fetchJson<T>(url: string): Promise<T> {
-  console.log(`[ApiPoller] GET ${url}`);
+  safeLog('log', `[ApiPoller] GET ${url}`);
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
   return r.json() as Promise<T>;
@@ -162,7 +172,7 @@ function formatTimeLabel(value?: string): string | undefined {
 
 function emitState(): void {
   if (!activeWidget || activeWidget.isDestroyed()) return;
-  console.log(`[ApiPoller] emitState → apiOnline=${lastState.apiOnline}, current=${lastState.schedule?.current?.label ?? 'none'}, lastUpdated=${lastState.lastUpdated}`);
+  safeLog('log', `[ApiPoller] emitState -> apiOnline=${lastState.apiOnline}, current=${lastState.schedule?.current?.label ?? 'none'}, lastUpdated=${lastState.lastUpdated}`);
   activeWidget.webContents.send(IPC.STATE_UPDATE, lastState);
 }
 
@@ -175,17 +185,38 @@ async function ensureDaySchedule(): Promise<boolean> {
     cachedDay = today;
     return true;
   } catch (err) {
-    console.error(`[ApiPoller] ensureDaySchedule failed for ${DAY_NAMES[today]}:`, err);
+    safeLog('error', `[ApiPoller] ensureDaySchedule failed for ${DAY_NAMES[today]}:`, err);
     // Keep stale cache if API is temporarily unreachable
     return cachedDayBlocks.length > 0;
   }
 }
 
+interface ApiWikiStats {
+  totalSources: number;
+  compiledSources: number;
+  pendingSources?: number;
+  failedSources?: number;
+  totalPages: number;
+  pageTypes: Record<string, number>;
+  lastUpdated: string | null;
+}
+
+interface ApiWikiAgentStatus {
+  configured: boolean;
+  profile: { name: string; provider: string } | null;
+}
+
 async function fetchState(): Promise<Partial<WidgetState>> {
-  const [scheduleOk, habitsRes] = await Promise.all([
+  const [scheduleOk, habitsRes, wikiRes, agentRes] = await Promise.all([
     ensureDaySchedule(),
     Promise.allSettled([fetchJson<ApiHabit[]>(apiUrl('/habits/today'))]).then((r) => r[0]),
+    Promise.allSettled([fetchJson<ApiWikiStats>(apiUrl('/wiki/stats'))]).then((r) => r[0]),
+    Promise.allSettled([fetchJson<ApiWikiAgentStatus>(apiUrl('/wiki/agent/status'))]).then((r) => r[0]),
   ]);
+
+  const wikiPendingCount = wikiRes.status === 'fulfilled'
+    ? wikiRes.value.pendingSources ?? Math.max(0, wikiRes.value.totalSources - wikiRes.value.compiledSources)
+    : lastState.wikiPendingCount;
 
   return {
     schedule: scheduleOk
@@ -194,7 +225,11 @@ async function fetchState(): Promise<Partial<WidgetState>> {
     habits: habitsRes.status === 'fulfilled'
       ? normalizeHabits(habitsRes.value)
       : lastState.habits,
-    apiOnline: scheduleOk || habitsRes.status === 'fulfilled',
+    apiOnline: scheduleOk || habitsRes.status === 'fulfilled' || wikiRes.status === 'fulfilled' || agentRes.status === 'fulfilled',
+    wikiPendingCount,
+    wikiAgent: agentRes.status === 'fulfilled'
+      ? agentRes.value.profile
+      : lastState.wikiAgent,
   };
 }
 
@@ -203,21 +238,21 @@ async function poll(widget: BrowserWindow): Promise<void> {
     const fresh = await fetchState();
     const wasOffline = !lastState.apiOnline;
     lastState = { ...lastState, ...fresh, lastUpdated: Date.now() };
-    console.log(`[ApiPoller] poll OK — apiOnline=${fresh.apiOnline}, current=${fresh.schedule?.current?.label ?? 'none'}`);
+    safeLog('log', `[ApiPoller] poll OK - apiOnline=${fresh.apiOnline}, current=${fresh.schedule?.current?.label ?? 'none'}`);
 
     // If we just came back online after being offline, reset to the normal poll interval
     if (wasOffline && fresh.apiOnline) {
-      console.log('[ApiPoller] API back online — switching to normal poll interval');
+      safeLog('log', '[ApiPoller] API back online - switching to normal poll interval');
       reschedulePoll(widget, POLL_INTERVAL_MS);
     }
   } catch (err) {
-    console.error('[ApiPoller] poll failed:', err);
+    safeLog('error', '[ApiPoller] poll failed:', err);
     const wasOnline = lastState.apiOnline;
     lastState = { ...lastState, apiOnline: false };
 
     // Switch to faster retry interval when we go offline
     if (wasOnline) {
-      console.log('[ApiPoller] API went offline — switching to fast retry interval');
+      safeLog('log', '[ApiPoller] API went offline - switching to fast retry interval');
       reschedulePoll(widget, POLL_INTERVAL_OFFLINE_MS);
     }
   }
@@ -342,6 +377,47 @@ export function startApiPoller(widget: BrowserWindow): void {
     };
     ipcMain.on(IPC.TOGGLE_HABIT, habitToggleHandler);
   }
+
+  if (!wikiCaptureHandler) {
+    // Wiki quick capture — renderer sends a URL string
+    wikiCaptureHandler = async (_event, url: string) => {
+      if (!url?.trim()) return;
+      try {
+        await fetch(apiUrl('/wiki/capture'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url.trim() }),
+        });
+        // Refresh state so wikiPendingCount badge updates
+        if (activeWidget && !activeWidget.isDestroyed()) {
+          await poll(activeWidget);
+        }
+      } catch {
+        // API offline — ignore
+      }
+    };
+    ipcMain.on(IPC.WIKI_CAPTURE, wikiCaptureHandler);
+  }
+
+  if (!wikiCompilePendingHandler) {
+    wikiCompilePendingHandler = async () => {
+      if (lastState.wikiCompiling || lastState.wikiPendingCount <= 0) return;
+      lastState = { ...lastState, wikiCompiling: true, lastUpdated: Date.now() };
+      emitState();
+      try {
+        await fetch(apiUrl('/wiki/compile/batch'), { method: 'POST' });
+        if (activeWidget && !activeWidget.isDestroyed()) {
+          await poll(activeWidget);
+        }
+      } catch {
+        // API offline or agent failed — next poll/UI will surface the remaining pending count.
+      } finally {
+        lastState = { ...lastState, wikiCompiling: false, lastUpdated: Date.now() };
+        emitState();
+      }
+    };
+    ipcMain.on(IPC.WIKI_COMPILE_PENDING, wikiCompilePendingHandler);
+  }
 }
 
 export function stopApiPoller(): void {
@@ -363,6 +439,16 @@ export function stopApiPoller(): void {
   if (habitToggleHandler) {
     ipcMain.removeListener(IPC.TOGGLE_HABIT, habitToggleHandler);
     habitToggleHandler = null;
+  }
+
+  if (wikiCaptureHandler) {
+    ipcMain.removeListener(IPC.WIKI_CAPTURE, wikiCaptureHandler);
+    wikiCaptureHandler = null;
+  }
+
+  if (wikiCompilePendingHandler) {
+    ipcMain.removeListener(IPC.WIKI_COMPILE_PENDING, wikiCompilePendingHandler);
+    wikiCompilePendingHandler = null;
   }
 
   activeWidget = null;

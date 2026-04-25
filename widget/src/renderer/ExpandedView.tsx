@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { WidgetState } from '../shared/types';
 import { useCountdown } from './useCountdown';
 import { getBridge } from './api';
@@ -56,10 +56,34 @@ export function ExpandedView({ state, onCollapse, blockColor }: Props) {
   const currentEmoji = block ? (BLOCK_EMOJI[block.type] ?? '▸') : '•';
   const nextTimeLabel = next?.start ? formatDisplayTime(next.start) : null;
 
+  // Wiki quick capture state
+  const [wikiUrl, setWikiUrl] = useState('');
+  const [wikiStatus, setWikiStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  const isReadingBlock = block?.type === 'reading';
+
   function handleHabitClick(habitId: number, applicable: boolean) {
     if (!applicable) return;
     getBridge()?.toggleHabit(String(habitId));
   }
+
+  const handleWikiCapture = useCallback(() => {
+    const url = wikiUrl.trim();
+    if (!url) return;
+    setWikiStatus('sending');
+    getBridge()?.wikiCapture(url);
+    setWikiUrl('');
+    setWikiStatus('sent');
+    setTimeout(() => setWikiStatus('idle'), 2000);
+  }, [wikiUrl]);
+
+  const handleWikiCompile = useCallback(() => {
+    getBridge()?.wikiCompilePending();
+  }, []);
+
+  const handleWikiKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleWikiCapture();
+  };
 
   return (
     <div className="expanded">
@@ -125,6 +149,55 @@ export function ExpandedView({ state, onCollapse, blockColor }: Props) {
           </div>
         ) : (
           <span className="next-time">No upcoming block</span>
+        )}
+      </div>
+
+      {/* Wiki section */}
+      <div className="wiki-section no-drag">
+        {isReadingBlock && (
+          <div className="wiki-prompt">
+            📖 What are you reading? Capture it ↓
+          </div>
+        )}
+        <div className="wiki-capture-row">
+          <span className="wiki-label">📚</span>
+          {state.wikiAgent && (
+            <span className="wiki-agent-badge" title={`Default wiki agent: ${state.wikiAgent.name}`}>
+              {state.wikiAgent.name}
+            </span>
+          )}
+          {state.wikiPendingCount > 0 && (
+            <span className="wiki-pending-badge" title="Sources pending compilation">
+              {state.wikiPendingCount} pending
+            </span>
+          )}
+          <input
+            className="wiki-url-input"
+            type="text"
+            value={wikiUrl}
+            onChange={(e) => setWikiUrl(e.target.value)}
+            onKeyDown={handleWikiKeyDown}
+            placeholder="Capture URL…"
+            disabled={wikiStatus === 'sending'}
+          />
+          <button
+            className={`wiki-capture-btn${wikiStatus === 'sent' ? ' sent' : ''}`}
+            onClick={handleWikiCapture}
+            disabled={wikiStatus === 'sending' || !wikiUrl.trim()}
+            title="Save to wiki"
+          >
+            {wikiStatus === 'sent' ? '✓' : '→'}
+          </button>
+        </div>
+        {state.wikiPendingCount > 0 && (
+          <button
+            className="wiki-compile-btn"
+            onClick={handleWikiCompile}
+            disabled={state.wikiCompiling}
+            title={state.wikiAgent ? `Compile with ${state.wikiAgent.name}` : 'Compile pending sources'}
+          >
+            {state.wikiCompiling ? 'Compiling...' : `Compile ${state.wikiPendingCount}`}
+          </button>
         )}
       </div>
 

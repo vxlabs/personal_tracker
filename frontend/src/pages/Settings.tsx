@@ -3,6 +3,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import { BlockedSitesSettings } from '@/components/settings/BlockedSitesSettings'
 import { ScheduleEditor } from '@/components/settings/ScheduleEditor'
+import { WikiAgentSettings } from '@/components/settings/WikiAgentSettings'
 import { isDesktopRuntime } from '@/runtime/config'
 import type { NotificationPreferences } from '@/types'
 
@@ -142,6 +143,9 @@ export function Settings() {
 
       {/* Schedule Editor */}
       <ScheduleEditor />
+
+      {/* Wiki AI Agent */}
+      <WikiAgentSettings />
 
       {/* Blocked Sites Management */}
       <BlockedSitesSettings />

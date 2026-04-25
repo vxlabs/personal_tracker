@@ -5,6 +5,7 @@ import { useXp } from '@/context/XpContext'
 import { NowCard } from '@/components/dashboard/NowCard'
 import { HabitsSection } from '@/components/dashboard/HabitsSection'
 import { TodayStats } from '@/components/dashboard/TodayStats'
+import { WikiWidget } from '@/components/dashboard/WikiWidget'
 import { TIMING_CONFIG } from '@/constants/timing'
 import { useCurrentBlock } from '@/hooks/useCurrentBlock'
 import { useHabits } from '@/hooks/useHabits'
@@ -61,6 +62,11 @@ export function Dashboard() {
       <section className="space-y-3">
         <h2 className="font-sans text-xs font-semibold uppercase tracking-wider text-text-dim">Progress</h2>
         <WeeklyXpChart weeks={summary?.weeklyBars ?? []} loading={xpLoading} />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-wider text-text-dim">Knowledge Wiki</h2>
+        <WikiWidget />
       </section>
 
       <section className="space-y-3">

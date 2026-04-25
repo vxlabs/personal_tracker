@@ -228,7 +228,7 @@ body,
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 210px;
+  min-height: 300px;
   padding: 12px 13px 11px;
 }
 
@@ -427,6 +427,156 @@ body,
   margin-left: 4px;
 }
 
+/* ── Wiki badge (compact row) ────────────────── */
+.wiki-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 999px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* ── Wiki section (expanded view) ───────────── */
+.wiki-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(167, 139, 250, 0.05);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+.wiki-prompt {
+  font-size: 10px;
+  color: #a78bfa;
+  font-weight: 600;
+  animation: wiki-prompt-pulse 2s ease-in-out infinite;
+}
+
+@keyframes wiki-prompt-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+.wiki-capture-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wiki-label {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.wiki-pending-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.18);
+  border-radius: 999px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wiki-agent-badge {
+  max-width: 58px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
+  font-weight: 700;
+  color: #67e8f9;
+  background: rgba(103, 232, 249, 0.1);
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 999px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wiki-url-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 7px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.wiki-url-input:focus {
+  border-color: rgba(167, 139, 250, 0.5);
+}
+
+.wiki-url-input::placeholder {
+  color: var(--text-dim);
+}
+
+.wiki-capture-btn {
+  flex-shrink: 0;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #a78bfa;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.wiki-capture-btn:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.28);
+  color: #c4b5fd;
+}
+
+.wiki-capture-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wiki-capture-btn.sent {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.wiki-compile-btn {
+  align-self: stretch;
+  background: rgba(103, 232, 249, 0.1);
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  color: #67e8f9;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.wiki-compile-btn:hover:not(:disabled) {
+  background: rgba(103, 232, 249, 0.18);
+  color: #a5f3fc;
+}
+
+.wiki-compile-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 /* No-block state */
 .no-block {
   display: flex;
@@ -436,4 +586,5 @@ body,
   font-size: 11px;
   color: var(--text-dim);
   padding: 0 12px;
+  gap: 8px;
 }

@@ -7,7 +7,9 @@ import { Schedule } from './pages/Schedule'
 import { Focus } from './pages/Focus'
 import { Habits } from './pages/Habits'
 import { Review } from './pages/Review'
+import { Activity } from './pages/Activity'
 import { Settings } from './pages/Settings'
+import { Wiki } from './pages/Wiki'
 
 function App() {
   const Router = isDesktopRuntime() ? HashRouter : BrowserRouter
@@ -22,6 +24,8 @@ function App() {
             <Route path="focus" element={<Focus />} />
             <Route path="habits" element={<Habits />} />
             <Route path="review" element={<Review />} />
+            <Route path="activity" element={<Activity />} />
+            <Route path="wiki/*" element={<Wiki />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

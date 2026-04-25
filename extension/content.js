@@ -19,6 +19,31 @@
   injectBanner(state);
 })();
 
+let __protocolLastHref = location.href;
+
+function __protocolReportActivityNavigation() {
+  if (location.href === __protocolLastHref) return;
+  __protocolLastHref = location.href;
+  chrome.runtime.sendMessage({
+    type: 'ACTIVITY_URL_CHANGED',
+    url: location.href,
+    title: document.title,
+  });
+}
+
+const __protocolPushState = history.pushState.bind(history);
+const __protocolReplaceState = history.replaceState.bind(history);
+history.pushState = (...args) => {
+  __protocolPushState(...args);
+  __protocolReportActivityNavigation();
+};
+history.replaceState = (...args) => {
+  __protocolReplaceState(...args);
+  __protocolReportActivityNavigation();
+};
+window.addEventListener('popstate', __protocolReportActivityNavigation);
+setInterval(__protocolReportActivityNavigation, 1000);
+
 function injectBanner(state) {
   if (document.getElementById('__protocol_banner_host__')) return;
 

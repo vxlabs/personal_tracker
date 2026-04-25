@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { app } from 'electron';
+import { safeLog, safeWrite } from './safe-log';
+import { getPortFilePath } from './native-messaging';
 
 const READY_PATTERN = /PROTOCOL_API_READY:(\d+)/;
 const STARTUP_TIMEOUT_MS = 30_000;
@@ -83,9 +85,39 @@ export async function startApiRuntime(): Promise<string> {
   }
 
   const dataDir = path.join(app.getPath('userData'), 'data');
-  const vaultDir = path.join(app.getPath('documents'), 'Protocol-Vault');
+  // Vault lives next to the app, not under Documents — the Documents folder is
+  // covered by Windows Defender Controlled Folder Access on many setups, which
+  // silently blocks the unsigned Protocol.Api binary from creating files there.
+  //   dev:      <repo>/Protocol-Vault          (one level up from widget/)
+  //   packaged: <install-dir>/Protocol-Vault   (next to the installed exe)
+  const vaultDir = app.isPackaged
+    ? path.join(path.dirname(app.getPath('exe')), 'Protocol-Vault')
+    : path.join(app.getAppPath(), '..', 'Protocol-Vault');
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.mkdirSync(vaultDir, { recursive: true });
+
+  // Pre-create the vault directory tree so the .NET VaultInitService finds
+  // existing dirs and skips its own Directory.CreateDirectory calls (which fail
+  // with FileNotFoundException on some Windows builds / Documents folder quirks).
+  // Each call is individually guarded: a locked or slow dir (e.g. watched by
+  // Windows Search) must not crash the whole startup sequence.
+  for (const subdir of [
+    '',              // vault root itself
+    'raw',
+    'raw/assets',
+    'wiki',
+    'wiki/entities',
+    'wiki/concepts',
+    'wiki/topics',
+    'wiki/sources',
+    'wiki/syntheses',
+  ]) {
+    const full = subdir ? path.join(vaultDir, subdir) : vaultDir;
+    try {
+      fs.mkdirSync(full, { recursive: true });
+    } catch {
+      // Non-fatal: the .NET API will retry and log a warning if a dir is missing.
+    }
+  }
 
   apiManagedByElectron = true;
 
@@ -109,6 +141,7 @@ export async function startApiRuntime(): Promise<string> {
         PROTOCOL_PORT: '0',
         PROTOCOL_DATA_DIR: dataDir,
         PROTOCOL_VAULT_DIR: vaultDir,
+        PROTOCOL_DESKTOP_ACTIVITY: process.platform === 'win32' ? '1' : '0',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -133,12 +166,12 @@ export async function startApiRuntime(): Promise<string> {
     });
 
     child.stderr?.on('data', (chunk) => {
-      console.error(`[Protocol.Api] ${chunk.toString().trim()}`);
+      safeLog('error', `[Protocol.Api] ${chunk.toString().trim()}`);
     });
 
     child.stdout?.on('data', async (chunk) => {
       const output = chunk.toString();
-      process.stdout.write(`[Protocol.Api] ${output}`);
+      safeWrite(process.stdout, `[Protocol.Api] ${output}`);
 
       const match = output.match(READY_PATTERN);
       if (!match || settled) {
@@ -152,7 +185,8 @@ export async function startApiRuntime(): Promise<string> {
         await waitForHealth(apiRootUrl);
         const resolvedBaseUrl = normalizeApiBaseUrl(apiRootUrl);
         // Write port file so the NMH handler can answer extension queries.
-        const portFile = path.join(app.getPath('userData'), 'api-port.json');
+        const portFile = getPortFilePath();
+        fs.mkdirSync(path.dirname(portFile), { recursive: true });
         fs.writeFileSync(
           portFile,
           JSON.stringify({ port: parseInt(match[1], 10), baseUrl: resolvedBaseUrl }, null, 2),
@@ -174,7 +208,7 @@ export function stopApiRuntime(): void {
 
   // Remove port file so extensions know the API is no longer running.
   try {
-    fs.unlinkSync(path.join(app.getPath('userData'), 'api-port.json'));
+    fs.unlinkSync(getPortFilePath());
   } catch {
     // File may not exist (e.g. dev mode or API never started).
   }

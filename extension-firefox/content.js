@@ -1,4 +1,16 @@
-const API_BASE = 'http://localhost:5000/api';
+const FALLBACK_API_BASE = 'http://localhost:5000/api';
+let API_BASE = FALLBACK_API_BASE;
+
+// Load the API base URL discovered by the background script via native messaging.
+// Falls back to the dev default (localhost:5000) if not yet written.
+browser.storage.local.get('apiBase').then(({ apiBase }) => {
+  if (apiBase) API_BASE = apiBase;
+}).catch(() => {});
+
+// Pick up port changes mid-session (e.g. after the desktop app restarts).
+browser.storage.onChanged.addListener((changes) => {
+  if (changes.apiBase?.newValue) API_BASE = changes.apiBase.newValue;
+});
 
 // ── SPA navigation watcher ────────────────────────────────────────────────────
 // YouTube Shorts / other SPAs push history state without a real page load.
@@ -10,6 +22,11 @@ let lastHref = location.href;
 function onNavigate() {
   if (location.href === lastHref) return;
   lastHref = location.href;
+  browser.runtime.sendMessage({
+    type: 'ACTIVITY_URL_CHANGED',
+    url: location.href,
+    title: document.title,
+  }).catch(() => {});
   checkAndInjectBanner();
 }
 

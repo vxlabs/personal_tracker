@@ -31,6 +31,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
+import { safeLog, safeWrite } from './safe-log';
 
 export const NMH_NAME = 'com.vxlabs.protocol';
 const NMH_DESCRIPTION = 'Protocol — live API port discovery for browser extensions';
@@ -102,17 +103,25 @@ function buildFirefoxManifest(execPath: string): object {
 
 /**
  * Register Protocol as a native messaging host.
- * Called on every startup in packaged mode — idempotent and fast.
- * Skipped in dev mode; extensions fall back to localhost:5000.
+ * Called on every startup — idempotent and fast.
+ *
+ * In packaged mode: points the manifest directly at Protocol.exe.
+ * In dev mode:      writes a small wrapper script (.bat on Windows, .sh on macOS)
+ *                   that invokes `electron <app-path>` so the browser can spawn
+ *                   the NMH handler without knowing about node_modules internals.
  */
 export function registerNativeMessagingHost(): void {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { app } = require('electron') as typeof import('electron');
 
-  if (!app.isPackaged) return;
-
   try {
-    const execPath = process.execPath;
+    let execPath: string;
+
+    if (app.isPackaged) {
+      execPath = process.execPath;
+    } else {
+      execPath = writeDevWrapper(app.getPath('userData'), process.execPath, app.getAppPath());
+    }
 
     if (process.platform === 'win32') {
       registerWindows(app.getPath('userData'), execPath);
@@ -120,10 +129,43 @@ export function registerNativeMessagingHost(): void {
       registerMacos(execPath);
     }
 
-    console.log('[NMH] Native messaging host registered');
+    safeLog('log', '[NMH] Native messaging host registered');
   } catch (err) {
-    console.error('[NMH] Registration failed:', err);
+    safeLog('error', '[NMH] Registration failed:', err);
   }
+}
+
+/**
+ * Write a wrapper script that the browser can spawn in dev mode.
+ * The browser cannot spawn electron.exe directly because it doesn't pass
+ * the app path, so Electron wouldn't find the compiled main process.
+ *
+ * The wrapper forwards all arguments (including the extension origin) so
+ * isNativeMessagingHostMode() still detects NMH mode correctly.
+ */
+function writeDevWrapper(userData: string, electronExecPath: string, appPath: string): string {
+  if (process.platform === 'win32') {
+    const wrapperPath = path.join(userData, 'nmh-dev.bat');
+    // Double-quote each path to handle spaces; %* forwards all args from the browser.
+    fs.writeFileSync(
+      wrapperPath,
+      `@echo off\r\n"${electronExecPath}" "${appPath}" %*\r\n`,
+      'utf-8',
+    );
+    return wrapperPath;
+  }
+
+  // macOS / Linux
+  const wrapperPath = path.join(userData, 'nmh-dev.sh');
+  fs.mkdirSync(path.dirname(wrapperPath), { recursive: true });
+  fs.writeFileSync(
+    wrapperPath,
+    `#!/bin/bash\nexec "${electronExecPath}" "${appPath}" "$@"\n`,
+    'utf-8',
+  );
+  // The script must be executable for the browser to spawn it.
+  fs.chmodSync(wrapperPath, 0o755);
+  return wrapperPath;
 }
 
 function registerWindows(userData: string, execPath: string): void {
@@ -165,7 +207,7 @@ function setWinRegistryKey(keyPath: string, value: string): void {
   try {
     execSync(`reg add "${keyPath}" /ve /t REG_SZ /d "${value}" /f`, { stdio: 'ignore' });
   } catch (err) {
-    console.warn(`[NMH] Failed to set registry key ${keyPath}:`, err);
+    safeLog('warn', `[NMH] Failed to set registry key ${keyPath}:`, err);
   }
 }
 
@@ -239,8 +281,8 @@ export function runNativeMessagingHost(): void {
     const byteLen = Buffer.byteLength(json, 'utf-8');
     const header = Buffer.alloc(4);
     header.writeUInt32LE(byteLen, 0);
-    process.stdout.write(header);
-    process.stdout.write(json, 'utf-8');
+    safeWrite(process.stdout, header);
+    safeWrite(process.stdout, json, 'utf-8');
 
     process.exit(0);
   }
