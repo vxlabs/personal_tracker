@@ -4,6 +4,7 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import { BlockedSitesSettings } from '@/components/settings/BlockedSitesSettings'
 import { ScheduleEditor } from '@/components/settings/ScheduleEditor'
 import { WikiAgentSettings } from '@/components/settings/WikiAgentSettings'
+import { VaultSettings } from '@/components/settings/VaultSettings'
 import { isDesktopRuntime } from '@/runtime/config'
 import type { NotificationPreferences } from '@/types'
 
@@ -143,6 +144,9 @@ export function Settings() {
 
       {/* Schedule Editor */}
       <ScheduleEditor />
+
+      {/* Vault & Wiki Folder */}
+      <VaultSettings />
 
       {/* Wiki AI Agent */}
       <WikiAgentSettings />

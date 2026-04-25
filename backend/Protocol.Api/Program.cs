@@ -36,18 +36,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// DbContext
+// DbContext — always store the DB outside the project tree to prevent
+// personal data from being accidentally committed to git.
+var defaultDataDir = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    "Protocol", "data");
+var effectiveDataDir = string.IsNullOrWhiteSpace(dataDir) ? defaultDataDir : dataDir;
+
 builder.Services.AddDbContext<ProtocolDbContext>(options =>
 {
-    if (!string.IsNullOrWhiteSpace(dataDir))
-    {
-        Directory.CreateDirectory(dataDir);
-        var dbPath = Path.Combine(dataDir, "protocol.db");
-        options.UseSqlite($"Data Source={dbPath}");
-        return;
-    }
-
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+    Directory.CreateDirectory(effectiveDataDir);
+    var dbPath = Path.Combine(effectiveDataDir, "protocol.db");
+    options.UseSqlite($"Data Source={dbPath}");
 });
 
 // Services

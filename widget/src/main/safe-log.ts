@@ -1,3 +1,5 @@
+import { writeLog } from './file-logger';
+
 type LogMethod = 'log' | 'error' | 'warn' | 'info';
 
 let loggingGuardsInstalled = false;
@@ -65,6 +67,8 @@ export function safeWrite(
 
 export function safeLog(method: LogMethod, ...args: unknown[]): void {
   installLoggingGuards();
+
+  writeLog(method, ...args);
 
   try {
     console[method](...args);

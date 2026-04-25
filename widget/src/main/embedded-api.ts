@@ -80,9 +80,12 @@ export async function startApiRuntime(): Promise<string> {
   }
 
   const apiBinaryPath = resolveApiBinaryPath();
+  safeLog('info', `[EmbeddedApi] Resolving API binary — path=${apiBinaryPath}, isPackaged=${app.isPackaged}`);
   if (!fs.existsSync(apiBinaryPath)) {
+    safeLog('error', `[EmbeddedApi] Binary NOT found at ${apiBinaryPath}`);
     throw new Error(`Embedded API binary not found at ${apiBinaryPath}`);
   }
+  safeLog('info', '[EmbeddedApi] Binary exists, preparing to spawn');
 
   const dataDir = path.join(app.getPath('userData'), 'data');
   // Vault lives next to the app, not under Documents — the Documents folder is
@@ -134,6 +137,7 @@ export async function startApiRuntime(): Promise<string> {
       reject(error);
     };
 
+    safeLog('info', `[EmbeddedApi] Spawning: dataDir=${dataDir}, vaultDir=${vaultDir}`);
     const child = spawn(apiBinaryPath, [], {
       env: {
         ...process.env,
@@ -147,6 +151,7 @@ export async function startApiRuntime(): Promise<string> {
       windowsHide: true,
     });
     apiProcess = child;
+    safeLog('info', `[EmbeddedApi] Process spawned — PID=${child.pid}`);
 
     const timeout = setTimeout(() => {
       fail(new Error('Timed out waiting for embedded API startup.'));
@@ -182,9 +187,10 @@ export async function startApiRuntime(): Promise<string> {
       const apiRootUrl = `http://127.0.0.1:${match[1]}`;
 
       try {
+        safeLog('info', `[EmbeddedApi] READY signal received — port=${match[1]}, waiting for health`);
         await waitForHealth(apiRootUrl);
+        safeLog('info', '[EmbeddedApi] Health check passed');
         const resolvedBaseUrl = normalizeApiBaseUrl(apiRootUrl);
-        // Write port file so the NMH handler can answer extension queries.
         const portFile = getPortFilePath();
         fs.mkdirSync(path.dirname(portFile), { recursive: true });
         fs.writeFileSync(
@@ -192,9 +198,11 @@ export async function startApiRuntime(): Promise<string> {
           JSON.stringify({ port: parseInt(match[1], 10), baseUrl: resolvedBaseUrl }, null, 2),
           'utf-8',
         );
+        safeLog('info', `[EmbeddedApi] Port file written — ${portFile}`);
         settled = true;
         resolve(resolvedBaseUrl);
       } catch (error) {
+        safeLog('error', '[EmbeddedApi] Health check or port file write failed:', error);
         fail(error instanceof Error ? error : new Error(String(error)));
       }
     });

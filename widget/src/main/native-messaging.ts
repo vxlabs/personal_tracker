@@ -123,13 +123,15 @@ export function registerNativeMessagingHost(): void {
       execPath = writeDevWrapper(app.getPath('userData'), process.execPath, app.getAppPath());
     }
 
+    safeLog('info', `[NMH] Registering NMH — execPath=${execPath}, platform=${process.platform}, chromeExtId=${CHROME_EXTENSION_ID}`);
+
     if (process.platform === 'win32') {
       registerWindows(app.getPath('userData'), execPath);
     } else if (process.platform === 'darwin') {
       registerMacos(execPath);
     }
 
-    safeLog('log', '[NMH] Native messaging host registered');
+    safeLog('log', '[NMH] Native messaging host registered successfully');
   } catch (err) {
     safeLog('error', '[NMH] Registration failed:', err);
   }
@@ -268,12 +270,15 @@ export function runNativeMessagingHost(): void {
     if (responded) return;
     responded = true;
 
+    const portFilePath = getPortFilePath();
     let payload: object;
     try {
-      const raw = fs.readFileSync(getPortFilePath(), 'utf-8');
+      const raw = fs.readFileSync(portFilePath, 'utf-8');
       const parsed = JSON.parse(raw) as { port: number; baseUrl: string };
       payload = { status: 'ok', port: parsed.port, baseUrl: parsed.baseUrl };
-    } catch {
+    } catch (err) {
+      // Log to stderr since stdout is the NMH wire protocol
+      process.stderr.write(`[NMH] Failed to read port file at ${portFilePath}: ${err}\n`);
       payload = { status: 'offline', port: null, baseUrl: null };
     }
 

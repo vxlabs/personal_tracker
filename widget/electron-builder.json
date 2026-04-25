@@ -1,5 +1,10 @@
 {
   "appId": "com.vxlabs.protocol",
+  "publish": {
+    "provider": "github",
+    "owner": "vxlabs",
+    "repo": "personal_tracker"
+  },
   "productName": "Protocol",
   "icon": "assets/icon.png",
   "directories": {

@@ -9,6 +9,9 @@ interface ProtocolDesktopBridge {
   showWidget?: () => Promise<void>
   hideWidget?: () => Promise<void>
   toggleWidget?: () => Promise<void>
+  openFolder?: (folderPath: string) => Promise<void>
+  getLogPath?: () => Promise<string | null>
+  openLogFolder?: () => Promise<void>
 }
 
 declare global {

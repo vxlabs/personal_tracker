@@ -1,8 +1,11 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import path from 'path';
 import { isNativeMessagingHostMode, runNativeMessagingHost, registerNativeMessagingHost } from './native-messaging';
 import { installLoggingGuards, safeLog } from './safe-log';
+import { initFileLogger, getLogPath, shutdownFileLogger } from './file-logger';
+import { initAutoUpdater } from './auto-updater';
 
+initFileLogger();
 installLoggingGuards();
 
 // Must be the very first check after imports.  When Chrome/Firefox spawns
@@ -10,6 +13,7 @@ installLoggingGuards();
 // (e.g. "chrome-extension://abc.../") as argv[1].  We handle the NMH
 // protocol here and exit before any GUI or API initialization happens.
 const __nmhMode = isNativeMessagingHostMode();
+safeLog('info', `[Main] Process started — nmhMode=${__nmhMode}, argv=${JSON.stringify(process.argv)}`);
 if (__nmhMode) {
   runNativeMessagingHost(); // async — calls process.exit() once stdin is read
 }
@@ -273,11 +277,13 @@ app.whenReady()
     // windows, no API spawn, no tray — just let the handler finish and exit.
     if (__nmhMode) return;
 
+    safeLog('info', '[Main] App ready — initializing full desktop shell');
     windowManager = new WindowManager();
     runtimeConfig = {
       isDesktop: true,
       apiBaseUrl: await startApiRuntime(),
     };
+    safeLog('info', `[Main] API runtime started — baseUrl=${runtimeConfig.apiBaseUrl}`);
     setApiBaseUrl(runtimeConfig.apiBaseUrl);
 
     // Register Protocol as a native messaging host so Chrome/Firefox extensions
@@ -355,9 +361,26 @@ app.whenReady()
       toggleWidget();
     });
 
+    ipcMain.handle(IPC.OPEN_FOLDER, (_event, folderPath: string) => {
+      shell.openPath(folderPath);
+    });
+
+    ipcMain.handle(IPC.GET_LOG_PATH, () => getLogPath());
+
+    ipcMain.handle(IPC.OPEN_LOG_FOLDER, () => {
+      const logPath = getLogPath();
+      if (logPath) {
+        shell.showItemInFolder(logPath);
+      }
+    });
+
     app.on('activate', () => {
       showMainWindow();
     });
+
+    // Initialize auto-updater after the app shell is ready.
+    // Checks for updates 10 s after startup; skipped in dev mode.
+    initAutoUpdater();
   })
   .catch((error) => {
     safeLog('error', 'Failed to start Protocol desktop shell:', error);
@@ -377,6 +400,7 @@ app.on('will-quit', () => {
   unregisterShortcuts();
   stopApiPoller();
   stopApiRuntime();
+  shutdownFileLogger();
 });
 
 // Prevent the window from being garbage-collected when all windows close

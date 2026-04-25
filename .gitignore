@@ -4,7 +4,13 @@ backend/**/obj/
 backend/**/*.user
 backend/**/appsettings.json
 backend/**/appsettings.*.json
+!backend/**/appsettings.template.json
+
+# SQLite runtime files
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 
 # Node
 frontend/node_modules/

@@ -409,6 +409,36 @@ public class WikiController(
         return Ok(new { synced = true, pageCount });
     }
 
+    // ── Vault info ────────────────────────────────────────────────────────
+
+    // GET /api/wiki/vault-info
+    [HttpGet("vault-info")]
+    public IActionResult VaultInfo()
+    {
+        var wikiDir = Path.Combine(VaultRoot, "wiki");
+        var subfolderNames = new[] { "entities", "concepts", "topics", "sources", "syntheses" };
+
+        var subfolders = subfolderNames.ToDictionary(
+            name => name,
+            name =>
+            {
+                var dir = Path.Combine(wikiDir, name);
+                return Directory.Exists(dir)
+                    ? Directory.GetFiles(dir, "*.md", SearchOption.AllDirectories).Length
+                    : 0;
+            });
+
+        var totalPages = subfolders.Values.Sum();
+
+        return Ok(new
+        {
+            vaultRoot = VaultRoot,
+            wikiDir,
+            subfolders,
+            totalPages,
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private static object SourceDto(VaultSource s) => new

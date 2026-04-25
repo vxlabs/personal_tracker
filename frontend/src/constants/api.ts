@@ -17,6 +17,7 @@ export const API_ENDPOINTS = {
   WIKI_SEARCH_AI: '/wiki/search/ai',
   WIKI_SEARCH_AI_FILE: '/wiki/search/ai/file',
   WIKI_SYNC: '/wiki/sync',
+  WIKI_VAULT_INFO: '/wiki/vault-info',
   WIKI_AGENT_STATUS: '/wiki/agent/status',
   WIKI_AGENT_PROFILES: '/wiki/agent/profiles',
   wikiAgentProfile: (id: number) => `/wiki/agent/profiles/${id}`,

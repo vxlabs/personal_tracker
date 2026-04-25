@@ -79,4 +79,16 @@ export const IPC = {
   TOGGLE_WIDGET: 'toggle-widget',
   WIKI_CAPTURE: 'wiki-capture',
   WIKI_COMPILE_PENDING: 'wiki-compile-pending',
+  OPEN_FOLDER: 'open-folder',
+  GET_LOG_PATH: 'get-log-path',
+  OPEN_LOG_FOLDER: 'open-log-folder',
+  // Auto-update channels
+  CHECK_FOR_UPDATE: 'check-for-update',
+  GET_UPDATE_STATUS: 'get-update-status',
+  INSTALL_UPDATE: 'install-update',
+  UPDATE_AVAILABLE: 'update-available',
+  UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
+  UPDATE_DOWNLOADED: 'update-downloaded',
+  UPDATE_ERROR: 'update-error',
+  UPDATE_STATUS_CHANGED: 'update-status-changed',
 } as const;

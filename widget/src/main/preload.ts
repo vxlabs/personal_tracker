@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { DesktopRuntimeConfig, IPC, WidgetState } from '../shared/types';
+import type { UpdateStatus } from './auto-updater';
 
 const protocolDesktop = {
   getRuntimeConfig: () => ipcRenderer.invoke(IPC.GET_RUNTIME_CONFIG) as Promise<DesktopRuntimeConfig>,
@@ -7,6 +8,39 @@ const protocolDesktop = {
   showWidget: () => ipcRenderer.invoke(IPC.SHOW_WIDGET),
   hideWidget: () => ipcRenderer.invoke(IPC.HIDE_WIDGET),
   toggleWidget: () => ipcRenderer.invoke(IPC.TOGGLE_WIDGET),
+  openFolder: (folderPath: string) => ipcRenderer.invoke(IPC.OPEN_FOLDER, folderPath),
+  getLogPath: () => ipcRenderer.invoke(IPC.GET_LOG_PATH) as Promise<string | null>,
+  openLogFolder: () => ipcRenderer.invoke(IPC.OPEN_LOG_FOLDER),
+
+  // Auto-update
+  getUpdateStatus: () => ipcRenderer.invoke(IPC.GET_UPDATE_STATUS) as Promise<UpdateStatus>,
+  checkForUpdate: () => ipcRenderer.invoke(IPC.CHECK_FOR_UPDATE) as Promise<void>,
+  installUpdate: () => ipcRenderer.invoke(IPC.INSTALL_UPDATE) as Promise<void>,
+  onUpdateAvailable: (callback: (payload: { version: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: { version: string }) => callback(payload);
+    ipcRenderer.on(IPC.UPDATE_AVAILABLE, listener);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_AVAILABLE, listener);
+  },
+  onUpdateDownloadProgress: (callback: (payload: { percent: number }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: { percent: number }) => callback(payload);
+    ipcRenderer.on(IPC.UPDATE_DOWNLOAD_PROGRESS, listener);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_DOWNLOAD_PROGRESS, listener);
+  },
+  onUpdateDownloaded: (callback: (payload: { version: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: { version: string }) => callback(payload);
+    ipcRenderer.on(IPC.UPDATE_DOWNLOADED, listener);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_DOWNLOADED, listener);
+  },
+  onUpdateError: (callback: (payload: { message: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: { message: string }) => callback(payload);
+    ipcRenderer.on(IPC.UPDATE_ERROR, listener);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_ERROR, listener);
+  },
+  onUpdateStatusChanged: (callback: (status: UpdateStatus) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+    ipcRenderer.on(IPC.UPDATE_STATUS_CHANGED, listener);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_STATUS_CHANGED, listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('protocolWidget', {

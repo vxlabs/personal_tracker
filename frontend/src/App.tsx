@@ -10,6 +10,7 @@ import { Review } from './pages/Review'
 import { Activity } from './pages/Activity'
 import { Settings } from './pages/Settings'
 import { Wiki } from './pages/Wiki'
+import { Help } from './pages/Help'
 
 function App() {
   const Router = isDesktopRuntime() ? HashRouter : BrowserRouter
@@ -27,6 +28,7 @@ function App() {
             <Route path="activity" element={<Activity />} />
             <Route path="wiki/*" element={<Wiki />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="help" element={<Help />} />
           </Route>
         </Routes>
       </XpProvider>

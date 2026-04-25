@@ -256,3 +256,32 @@ export function useWikiGraph() {
 
   return { data, loading }
 }
+
+export interface VaultInfo {
+  vaultRoot: string
+  wikiDir: string
+  subfolders: Record<string, number>
+  totalPages: number
+}
+
+export function useVaultInfo() {
+  const [info, setInfo] = useState<VaultInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.get<VaultInfo>(API_ENDPOINTS.WIKI_VAULT_INFO)
+      setInfo(data)
+    } catch {
+      setError('Failed to load vault info')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+  return { info, loading, error, refresh }
+}

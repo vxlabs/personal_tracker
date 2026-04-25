@@ -10,6 +10,7 @@ import {
   Award,
   BrainCircuit,
   BarChart3,
+  HelpCircle,
 } from 'lucide-react'
 import { useXp } from '@/context/XpContext'
 import { format } from 'date-fns'
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: '/activity', label: 'Activity', icon: BarChart3 },
   { to: '/wiki', label: 'Wiki', icon: BrainCircuit },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/help', label: 'Help', icon: HelpCircle },
 ] as const
 
 export function LiveClock() {
