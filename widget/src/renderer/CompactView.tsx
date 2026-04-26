@@ -19,9 +19,10 @@ interface Props {
   state: WidgetState;
   onExpand: () => void;
   blockColor: string;
+  onDragStart: (e: React.MouseEvent) => void;
 }
 
-export function CompactView({ state, onExpand, blockColor }: Props) {
+export function CompactView({ state, onExpand, blockColor, onDragStart }: Props) {
   const { schedule } = state;
   const block = schedule?.current;
   const startEpoch = schedule?.currentBlockStartEpoch ?? null;
@@ -47,6 +48,7 @@ export function CompactView({ state, onExpand, blockColor }: Props) {
   return (
     <div className="compact">
       <div className="compact-row">
+        <span className="drag-handle" title="Drag to move" onMouseDown={onDragStart}>⠿</span>
         <span className="block-label">
           <span className="block-emoji">{emoji}</span>
           {block.label}

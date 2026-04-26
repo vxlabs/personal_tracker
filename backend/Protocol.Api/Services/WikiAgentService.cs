@@ -292,9 +292,10 @@ public class WikiAgentService(
                     Name = "Claude CLI",
                     Provider = "anthropic",
                     Executable = "claude",
-                    // -p = print/non-interactive mode; --dangerously-skip-permissions bypasses
-                    // confirmation prompts so it works when stdin/stderr is not a TTY.
-                    ArgumentsTemplate = "-p --dangerously-skip-permissions",
+                    // --dangerously-skip-permissions must come BEFORE -p so yargs does not
+                    // consume it as the optional [string] value of -p; -p with no trailing
+                    // value then reads the prompt from stdin as intended.
+                    ArgumentsTemplate = "--dangerously-skip-permissions -p",
                     SendPromptToStdIn = true,
                     IsDefault = false,
                     CreatedAt = now,
@@ -316,7 +317,10 @@ public class WikiAgentService(
                     Name = "Gemini CLI",
                     Provider = "gemini",
                     Executable = "gemini",
-                    ArgumentsTemplate = "-p",
+                    // -p requires a [string] value; passing a space satisfies the parser.
+                    // The real prompt arrives via stdin and is appended by Gemini's own
+                    // "Appended to input on stdin (if any)" behaviour.
+                    ArgumentsTemplate = "-p \" \"",
                     SendPromptToStdIn = true,
                     IsDefault = false,
                     CreatedAt = now,
@@ -348,8 +352,10 @@ public class WikiAgentService(
     /// - Codex profiles with bare "-" or old "exec --cd" args → corrected to
     ///   "exec -C {vaultRoot} --skip-git-repo-check --ephemeral -".
     /// - Ensures Codex CLI is the default agent (transfers IsDefault from Claude if needed).
-    /// - Claude profiles get "--dangerously-skip-permissions" so they work when
-    ///   stdin/stderr is not a TTY (ready for when the user switches back).
+    /// - Claude profiles get "--dangerously-skip-permissions" appended and reordered so it
+    ///   comes before "-p" (prevents yargs from treating the flag name as -p's value).
+    /// - Gemini profiles with bare "-p" get a space placeholder "-p \" \"" so the parser
+    ///   does not reject the call with "Not enough arguments following: p".
     /// </summary>
     private async Task PatchLegacyProfilesAsync()
     {
@@ -400,7 +406,7 @@ public class WikiAgentService(
                 codexProfile.Name);
         }
 
-        // ── Claude: ensure --dangerously-skip-permissions is present ─────────
+        // ── Claude: ensure --dangerously-skip-permissions is present and ordered correctly ──
         var claudeProfiles = profiles.Where(p =>
             p.Provider == "anthropic" ||
             p.Executable.Equals("claude", StringComparison.OrdinalIgnoreCase));
@@ -417,6 +423,47 @@ public class WikiAgentService(
                 logger.LogWarning(
                     "Patching Claude CLI profile '{Name}': added --dangerously-skip-permissions to args (was '{OldArgs}')",
                     cp.Name,
+                    oldArgs);
+            }
+
+            // Fix argument ordering: -p must come AFTER --dangerously-skip-permissions so
+            // yargs does not consume the flag name as -p's optional [string] value.
+            var pIdx = cp.ArgumentsTemplate.IndexOf("-p", StringComparison.Ordinal);
+            var dspIdx = cp.ArgumentsTemplate.IndexOf("--dangerously-skip-permissions", StringComparison.Ordinal);
+            if (pIdx >= 0 && dspIdx > pIdx)
+            {
+                var oldArgs2 = cp.ArgumentsTemplate;
+                cp.ArgumentsTemplate = "--dangerously-skip-permissions -p";
+                cp.UpdatedAt = DateTime.UtcNow;
+                changed = true;
+
+                logger.LogWarning(
+                    "Patching Claude CLI profile '{Name}': reordered args to '--dangerously-skip-permissions -p' (was '{OldArgs}')",
+                    cp.Name,
+                    oldArgs2);
+            }
+        }
+
+        // ── Gemini: -p requires a [string] value; bare "-p" causes "Not enough arguments" ─
+        var geminiProfiles = profiles.Where(p =>
+            p.Provider == "gemini" ||
+            p.Executable.Equals("gemini", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var gp in geminiProfiles)
+        {
+            var trimmed = gp.ArgumentsTemplate.Trim();
+            if (trimmed == "-p" || trimmed == "-p --yolo")
+            {
+                var oldArgs = gp.ArgumentsTemplate;
+                // Pass a space as the minimal -p value; the actual prompt arrives via stdin
+                // and is appended by Gemini CLI ("Appended to input on stdin (if any)").
+                gp.ArgumentsTemplate = trimmed.Replace("-p", "-p \" \"", StringComparison.Ordinal);
+                gp.UpdatedAt = DateTime.UtcNow;
+                changed = true;
+
+                logger.LogWarning(
+                    "Patching Gemini CLI profile '{Name}': added placeholder value for -p flag (was '{OldArgs}')",
+                    gp.Name,
                     oldArgs);
             }
         }

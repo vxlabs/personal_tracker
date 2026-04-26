@@ -29,6 +29,7 @@ interface Props {
   state: WidgetState;
   onCollapse: () => void;
   blockColor: string;
+  onDragStart: (e: React.MouseEvent) => void;
 }
 
 function formatDisplayTime(value: string): string {
@@ -42,7 +43,7 @@ function formatDisplayTime(value: string): string {
   }).format(date);
 }
 
-export function ExpandedView({ state, onCollapse, blockColor }: Props) {
+export function ExpandedView({ state, onCollapse, blockColor, onDragStart }: Props) {
   const { schedule, habits } = state;
   const block = schedule?.current;
   const next = schedule?.next;
@@ -88,6 +89,7 @@ export function ExpandedView({ state, onCollapse, blockColor }: Props) {
   return (
     <div className="expanded">
       <div className="expanded-header">
+        <span className="drag-handle" title="Drag to move" onMouseDown={onDragStart}>⠿</span>
         <div className="expanded-title">
           <span className="expanded-emoji">{currentEmoji}</span>
           <div className="expanded-copy">

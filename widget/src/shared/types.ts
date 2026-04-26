@@ -79,6 +79,8 @@ export const IPC = {
   TOGGLE_WIDGET: 'toggle-widget',
   WIKI_CAPTURE: 'wiki-capture',
   WIKI_COMPILE_PENDING: 'wiki-compile-pending',
+  DRAG_START: 'drag-start',
+  DRAG_END: 'drag-end',
   OPEN_FOLDER: 'open-folder',
   GET_LOG_PATH: 'get-log-path',
   OPEN_LOG_FOLDER: 'open-log-folder',
