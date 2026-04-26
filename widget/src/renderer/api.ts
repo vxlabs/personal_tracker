@@ -7,6 +7,8 @@ interface ProtocolWidgetBridge {
   toggleHabit: (habitId: string) => void;
   wikiCapture: (url: string) => void;
   wikiCompilePending: () => void;
+  dragStart: () => void;
+  dragEnd: () => void;
   getState: () => Promise<WidgetState>;
   onStateUpdate: (callback: (state: WidgetState) => void) => () => void;
 }

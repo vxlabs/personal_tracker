@@ -90,6 +90,7 @@ export function Widget() {
   }, []);
 
   const isDragging = useRef(false);
+  const isModeTransitioning = useRef(false);
 
   // Global mouseup clears drag state so onMouseLeave can restore click-through
   useEffect(() => {
@@ -106,9 +107,7 @@ export function Widget() {
   }, []);
 
   const onMouseLeave = useCallback(() => {
-    // Don't restore click-through mid-drag — the mouse leaves the window bounds
-    // during a drag but we still need mouse events to complete it.
-    if (!isDragging.current) {
+    if (!isDragging.current && !isModeTransitioning.current) {
       getBridge()?.setIgnoreMouse(true);
     }
   }, []);
@@ -117,8 +116,30 @@ export function Widget() {
     isDragging.current = true;
   }, []);
 
-  const expand = useCallback(() => getBridge()?.setMode('expanded'), []);
-  const collapse = useCallback(() => getBridge()?.setMode('compact'), []);
+  const onDragHandleDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    getBridge()?.setIgnoreMouse(false);
+    getBridge()?.dragStart();
+
+    const onUp = () => {
+      isDragging.current = false;
+      getBridge()?.dragEnd();
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
+  const expand = useCallback(() => {
+    isModeTransitioning.current = true;
+    getBridge()?.setMode('expanded');
+    setTimeout(() => { isModeTransitioning.current = false; }, 300);
+  }, []);
+  const collapse = useCallback(() => {
+    isModeTransitioning.current = true;
+    getBridge()?.setMode('compact');
+    setTimeout(() => { isModeTransitioning.current = false; }, 300);
+  }, []);
 
   const blockType = state.schedule?.current?.type;
   const blockColor = blockType ? (BLOCK_COLORS[blockType] ?? '#a855f7') : '#a855f7';
@@ -149,9 +170,9 @@ export function Widget() {
         className={`view-panel ${mode === 'expanded' ? 'view-enter-expanded' : 'view-enter-compact'}`}
       >
         {mode === 'compact' ? (
-          <CompactView state={state} onExpand={expand} blockColor={blockColor} />
+          <CompactView state={state} onExpand={expand} blockColor={blockColor} onDragStart={onDragHandleDown} />
         ) : (
-          <ExpandedView state={state} onCollapse={collapse} blockColor={blockColor} />
+          <ExpandedView state={state} onCollapse={collapse} blockColor={blockColor} onDragStart={onDragHandleDown} />
         )}
       </div>
     </div>

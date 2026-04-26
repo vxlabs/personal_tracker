@@ -47,8 +47,7 @@ body,
   user-select: none;
   overflow: hidden;
 
-  /* Draggable via title-bar region */
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
@@ -70,10 +69,29 @@ body,
   border-radius: 16px;
 }
 
-/* Buttons/interactive elements must opt out of drag */
-.widget button,
-.widget .no-drag {
+/* Drag handle — manual IPC-based drag (CSS app-region drag is broken on
+   Windows transparent frameless windows) */
+.drag-handle {
   -webkit-app-region: no-drag;
+  cursor: grab;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  padding: 2px 3px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: var(--text);
 }
 
 /* Block type left-border accents */

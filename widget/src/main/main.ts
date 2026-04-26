@@ -41,9 +41,25 @@ export let windowManager: WindowManager | null = null;
 let resizeTimer: ReturnType<typeof setInterval> | null = null;
 let isQuitting = false;
 let runtimeConfig: DesktopRuntimeConfig | null = null;
+let dragInterval: ReturnType<typeof setInterval> | null = null;
+let dragOffset: { dx: number; dy: number } | null = null;
 
 function easeOutCubic(progress: number): number {
   return 1 - Math.pow(1 - progress, 3);
+}
+
+function clampToWorkArea(win: BrowserWindow): void {
+  const bounds = win.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const { x: areaX, y: areaY, width: areaW, height: areaH } = display.workArea;
+
+  const clampedX = Math.max(areaX, Math.min(bounds.x, areaX + areaW - bounds.width));
+  const clampedY = Math.max(areaY, Math.min(bounds.y, areaY + areaH - bounds.height));
+
+  if (clampedX !== bounds.x || clampedY !== bounds.y) {
+    win.setPosition(clampedX, clampedY, false);
+    windowManager?.savePosition({ x: clampedX, y: clampedY });
+  }
 }
 
 function animateWidgetHeight(win: BrowserWindow, targetHeight: number): void {
@@ -54,11 +70,12 @@ function animateWidgetHeight(win: BrowserWindow, targetHeight: number): void {
 
   const [x, startY] = win.getPosition();
   const [width, startHeight] = win.getSize();
-  const bottom = startY + startHeight;
 
   if (startHeight === targetHeight) {
     return;
   }
+
+  const isCollapsing = targetHeight < startHeight;
 
   const steps = Math.max(1, Math.round(RESIZE_DURATION_MS / RESIZE_STEP_MS));
   let step = 0;
@@ -78,15 +95,20 @@ function animateWidgetHeight(win: BrowserWindow, targetHeight: number): void {
     const nextHeight = Math.round(
       startHeight + (targetHeight - startHeight) * easedProgress
     );
-    const nextY = bottom - nextHeight;
 
-    win.setBounds({ x, y: nextY, width, height: nextHeight }, false);
+    if (isCollapsing) {
+      win.setBounds({ x, y: startY, width, height: nextHeight }, false);
+    } else {
+      const bottom = startY + startHeight;
+      win.setBounds({ x, y: bottom - nextHeight, width, height: nextHeight }, false);
+    }
 
     if (progress >= 1) {
       if (resizeTimer) {
         clearInterval(resizeTimer);
         resizeTimer = null;
       }
+      clampToWorkArea(win);
     }
   }, RESIZE_STEP_MS);
 }
@@ -341,6 +363,42 @@ app.whenReady()
       widget?.setIgnoreMouseEvents(ignore, { forward: true });
     });
 
+    // IPC: manual window drag (CSS -webkit-app-region: drag is broken on
+    // Windows transparent frameless windows).  The renderer sends DRAG_START
+    // on mousedown; we capture the cursor-to-window offset and poll the
+    // cursor position at 60 fps to move the window.  DRAG_END stops it.
+    ipcMain.on(IPC.DRAG_START, () => {
+      if (!widget || widget.isDestroyed()) return;
+      if (dragInterval) { clearInterval(dragInterval); dragInterval = null; }
+
+      const cursor = screen.getCursorScreenPoint();
+      const [wx, wy] = widget.getPosition();
+      const [ww, wh] = widget.getSize();
+      dragOffset = { dx: cursor.x - wx, dy: cursor.y - wy };
+
+      dragInterval = setInterval(() => {
+        if (!widget || widget.isDestroyed() || !dragOffset) {
+          if (dragInterval) { clearInterval(dragInterval); dragInterval = null; }
+          return;
+        }
+        const cur = screen.getCursorScreenPoint();
+        widget.setBounds({
+          x: cur.x - dragOffset.dx,
+          y: cur.y - dragOffset.dy,
+          width: ww,
+          height: wh,
+        }, false);
+      }, 16);
+    });
+
+    ipcMain.on(IPC.DRAG_END, () => {
+      if (dragInterval) { clearInterval(dragInterval); dragInterval = null; }
+      dragOffset = null;
+      if (widget && !widget.isDestroyed()) {
+        clampToWorkArea(widget);
+      }
+    });
+
     // IPC: resize window when mode toggles between compact and expanded
     ipcMain.on(IPC.SET_MODE, (_event, mode: WidgetMode) => {
       applyMode(mode);
@@ -396,6 +454,10 @@ app.on('will-quit', () => {
   if (resizeTimer) {
     clearInterval(resizeTimer);
     resizeTimer = null;
+  }
+  if (dragInterval) {
+    clearInterval(dragInterval);
+    dragInterval = null;
   }
   unregisterShortcuts();
   stopApiPoller();

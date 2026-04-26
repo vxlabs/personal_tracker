@@ -60,6 +60,12 @@ contextBridge.exposeInMainWorld('protocolWidget', {
   wikiCompilePending: () => {
     ipcRenderer.send(IPC.WIKI_COMPILE_PENDING);
   },
+  dragStart: () => {
+    ipcRenderer.send(IPC.DRAG_START);
+  },
+  dragEnd: () => {
+    ipcRenderer.send(IPC.DRAG_END);
+  },
   getState: () => ipcRenderer.invoke(IPC.GET_STATE) as Promise<WidgetState>,
 
   // Main → Renderer

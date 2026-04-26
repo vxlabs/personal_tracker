@@ -118,13 +118,13 @@ export function Activity() {
           active={tab === 'websites'}
           onClick={() => setTab('websites')}
           icon={<Globe2 size={14} />}
-          label="Website Detail"
+          label="Website Visits"
         />
       </div>
 
       {tab === 'apps'
         ? <AppUsageTab period={period} />
-        : <WebsiteDetailTab period={period} />
+        : <WebsiteVisitsTab period={period} />
       }
     </div>
   )
@@ -438,9 +438,9 @@ function AppRow({
   )
 }
 
-// ─── Website Detail Tab ────────────────────────────────────────────────────
+// ─── Website Visits Tab ────────────────────────────────────────────────────
 
-function WebsiteDetailTab({ period }: { period: Period }) {
+function WebsiteVisitsTab({ period }: { period: Period }) {
   const { summary, loading, saving, training, error, trainResult, fetchSummary, saveLabel, train } = useActivity()
 
   useEffect(() => {
@@ -489,8 +489,8 @@ function WebsiteDetailTab({ period }: { period: Period }) {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[1fr_360px] min-h-0">
+        <div className="space-y-6 min-h-0 overflow-y-auto">
           <Section title="Productivity Split" icon={<CalendarDays size={16} />}>
             {loading ? <Loading /> : <LabelSplit items={summary?.byLabel ?? []} total={total} />}
           </Section>
@@ -509,7 +509,7 @@ function WebsiteDetailTab({ period }: { period: Period }) {
           </Section>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 min-h-0 overflow-y-auto">
           <Section title="ML Training" icon={<Brain size={16} />}>
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2">

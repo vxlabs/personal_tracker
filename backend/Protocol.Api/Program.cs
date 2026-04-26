@@ -7,13 +7,7 @@ using Protocol.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 if (OperatingSystem.IsWindows() && Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
 {
-    builder.Host.UseWindowsService(); // Allows running as a Windows Service
-}
-else
-{
-    builder.Logging.ClearProviders();
-    builder.Logging.AddConsole();
-    builder.Logging.AddDebug();
+    builder.Host.UseWindowsService();
 }
 
 var configuredPort = Environment.GetEnvironmentVariable("PROTOCOL_PORT");
