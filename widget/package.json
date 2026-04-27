@@ -1,6 +1,6 @@
 {
   "name": "protocol-desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Protocol desktop app with embedded API and always-on-top widget",
   "main": "dist/main/main/main.js",
   "scripts": {
